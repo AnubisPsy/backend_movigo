@@ -2,42 +2,38 @@ require("dotenv").config();
 const express = require("express");
 const sequelize = require("./src/config/database");
 const initModels = require("./src/models/init-models");
+const usuarioRoutes = require("./src/routes/usuario.routes");
+const authRoutes = require('./src/routes/auth.routes');
 
-const usuarioRoutes = require("./src/routes/usuario.routes.js");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
+// Middlewares
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Rutas
 app.use("/api/usuarios", usuarioRoutes);
+app.use("/api/auth", authRoutes);
 
-// Inicializar modelos
-const models = initModels(sequelize);
-
-// Rutas básicas de prueba
-app.get("/", (req, res) => {
-  res.send("¡API de MoviGO funcionando! 🚗");
+// Middleware de manejo de errores
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({
+    message: "Error interno del servidor",
+    error: err.message,
+  });
 });
 
-// Inicialización del servidor y base de datos
+// Iniciamos el servidor
 async function initializeServer() {
   try {
-    // Probar conexión
     await sequelize.authenticate();
-    console.log("¡Conexión a la base de datos establecida! 🚀");
-
-    // Sincronizar modelos (false para no recrear las tablas)
+    console.log("¡Conexión establecida! 🚀");
     await sequelize.sync({ force: false });
-    console.log("Modelos sincronizados correctamente ✅");
-
-    // Iniciar servidor
-    app.listen(PORT, () => {
-      console.log(`Servidor corriendo en puerto ${PORT} 🔥`);
-    });
+    app.listen(PORT, () => console.log(`Servidor en puerto ${PORT} 🔥`));
   } catch (error) {
-    console.error("Error al inicializar:", error);
+    console.error("Error:", error);
   }
 }
 

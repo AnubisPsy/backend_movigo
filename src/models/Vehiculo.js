@@ -7,29 +7,33 @@ module.exports = function(sequelize, DataTypes) {
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true
     },
-    conductor_id: {
-      type: DataTypes.UUID,
-      allowNull: true,
-      references: {
-        model: 'Conductores',
-        key: 'id'
-      }
-    },
     marca: {
       type: DataTypes.TEXT,
-      allowNull: false
+      allowNull: true
     },
     modelo: {
       type: DataTypes.TEXT,
-      allowNull: false
+      allowNull: true
     },
     'año': {
       type: DataTypes.TEXT,
-      allowNull: false
+      allowNull: true
     },
     placa: {
       type: DataTypes.TEXT,
-      allowNull: false
+      allowNull: true
+    },
+    id_conductor: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'Usuarios',
+        key: 'id'
+      }
+    },
+    color: {
+      type: DataTypes.TEXT,
+      allowNull: true
     }
   }, {
     sequelize,

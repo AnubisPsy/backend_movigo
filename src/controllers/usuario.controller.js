@@ -1,49 +1,82 @@
-const { Usuarios } = require("../models/init-models")(
-  require("../config/database")
-);
+const initModels = require("../models/init-models");
+const sequelize = require("../config/database");
+const { Usuarios, Op } = initModels(sequelize);
 
-// Obtener todos los usuarios
 const getUsuarios = async (req, res) => {
   try {
     const usuarios = await Usuarios.findAll();
+    //console.log("Usuarios:", usuarios); // Para debuggear
+
+    if (!usuarios || usuarios.length === 0) {
+      return res.status(404).json({ message: "No hay usuarios registrados" });
+    }
     res.json(usuarios);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    //console.error("Error:", error); // Para debuggear
+    res.status(500).json({ message: "Error al obtener usuarios" });
   }
 };
 
-// Obtener un usuario por ID
 const getUsuarioById = async (req, res) => {
   try {
-    const usuario = await Usuarios.findByPk(req.params.id);
-    if (usuario) {
-      res.json(usuario);
-    } else {
-      res.status(404).json({ message: "Usuario no encontrado" });
+    if (!req.params.id) {
+      return res.status(400).json({ message: "ID de usuario requerido" });
     }
+    const usuario = await Usuarios.findByPk(req.params.id);
+    if (!usuario) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+    res.json(usuario);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: "Error al obtener usuario" });
   }
 };
 
-// Para crear usuario
 const createUsuario = async (req, res) => {
   try {
-    const { nombre, apellido, email, contraseña, rol } = req.body;
+    const {
+      nombre,
+      apellido,
+      email,
+      contraseña,
+      rol,
+      estado_usuario = true,
+    } = req.body;
 
-    // Verificar campos requeridos
-    if (!nombre || !apellido || !email || !contraseña || !rol) {
-      return res.status(400).json({
-        message: "Todos los campos son requeridos",
-      });
+    // Validar campos requeridos
+    if (
+      !nombre?.trim() ||
+      !apellido?.trim() ||
+      !email?.trim() ||
+      !contraseña?.trim() ||
+      !rol
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Todos los campos son requeridos" });
     }
 
-    // Verificar si el email ya existe
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: "Formato de email inválido" });
+    }
+
+    // Validar contraseña
+    if (contraseña.length < 6) {
+      return res
+        .status(400)
+        .json({ message: "La contraseña debe tener al menos 6 caracteres" });
+    }
+
+    // Validar rol
+    if (![1, 2, 3].includes(rol)) {
+      return res.status(400).json({ message: "Rol inválido" });
+    }
+
     const emailExistente = await Usuarios.findOne({ where: { email } });
     if (emailExistente) {
-      return res.status(400).json({
-        message: "El correo electrónico ya está registrado",
-      });
+      return res.status(400).json({ message: "Email ya registrado" });
     }
 
     const nuevoUsuario = await Usuarios.create({
@@ -52,6 +85,8 @@ const createUsuario = async (req, res) => {
       email,
       contraseña,
       rol,
+      estado_usuario,
+      created_at: new Date(),
     });
 
     res.status(201).json({
@@ -59,49 +94,60 @@ const createUsuario = async (req, res) => {
       usuario: nuevoUsuario,
     });
   } catch (error) {
-    res.status(400).json({
-      message: "Error al crear usuario",
-      error: error.message,
-    });
+    res.status(500).json({ message: "Error al crear usuario" });
   }
 };
 
-// Para actualizar usuario
 const updateUsuario = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, apellido, email, contraseña, rol } = req.body;
+    const { nombre, apellido, email, contraseña, rol, estado_usuario } =
+      req.body;
 
-    const usuario = await Usuarios.findByPk(id);
-
-    if (!usuario) {
-      return res.status(404).json({
-        message: "Usuario no encontrado",
-      });
+    if (!id) {
+      return res.status(400).json({ message: "ID de usuario requerido" });
     }
 
-    // Si se está actualizando el email, verificar que no exista
-    if (email && email !== usuario.email) {
-      const emailExistente = await Usuarios.findOne({
-        where: {
-          email,
-          id: { [Op.ne]: id }, // Excluir el usuario actual de la búsqueda
-        },
-      });
+    const usuario = await Usuarios.findByPk(id);
+    if (!usuario) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
 
+    // Validar formato de email si se proporciona
+    if (email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ message: "Formato de email inválido" });
+      }
+
+      const emailExistente = await Usuarios.findOne({
+        where: { email, id: { [Op.ne]: id } },
+      });
       if (emailExistente) {
-        return res.status(400).json({
-          message: "El correo electrónico ya está en uso por otro usuario",
-        });
+        return res.status(400).json({ message: "Email ya en uso" });
       }
     }
 
+    // Validar contraseña si se proporciona
+    if (contraseña && contraseña.length < 6) {
+      return res
+        .status(400)
+        .json({ message: "La contraseña debe tener al menos 6 caracteres" });
+    }
+
+    // Validar rol si se proporciona
+    if (![1, 2, 3].includes(rol)) {
+      return res.status(400).json({ message: "Rol inválido" });
+    }
+
     await usuario.update({
-      nombre: nombre || usuario.nombre,
-      apellido: apellido || usuario.apellido,
-      email: email || usuario.email,
+      nombre: nombre?.trim() || usuario.nombre,
+      apellido: apellido?.trim() || usuario.apellido,
+      email: email?.trim() || usuario.email,
       contraseña: contraseña || usuario.contraseña,
       rol: rol || usuario.rol,
+      estado_usuario:
+        estado_usuario !== undefined ? estado_usuario : usuario.estado_usuario,
     });
 
     res.json({
@@ -109,34 +155,27 @@ const updateUsuario = async (req, res) => {
       usuario,
     });
   } catch (error) {
-    res.status(400).json({
-      message: "Error al actualizar usuario",
-      error: error.message,
-    });
+    res.status(500).json({ message: "Error al actualizar usuario" });
   }
 };
 
-// Eliminar un usuario
 const deleteUsuario = async (req, res) => {
   try {
     const { id } = req.params;
-    const usuario = await Usuarios.findByPk(id);
 
+    if (!id) {
+      return res.status(400).json({ message: "ID de usuario requerido" });
+    }
+
+    const usuario = await Usuarios.findByPk(id);
     if (!usuario) {
-      return res.status(404).json({
-        message: "Usuario no encontrado",
-      });
+      return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
     await usuario.destroy();
-    res.json({
-      message: "Usuario eliminado exitosamente",
-    });
+    res.json({ message: "Usuario eliminado exitosamente" });
   } catch (error) {
-    res.status(500).json({
-      message: "Error al eliminar usuario",
-      error: error.message,
-    });
+    res.status(500).json({ message: "Error al eliminar usuario" });
   }
 };
 

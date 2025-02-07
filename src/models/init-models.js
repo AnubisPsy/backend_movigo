@@ -1,42 +1,44 @@
-const Sequelize = require("sequelize");
-const conductoresModel = require("./Conductores");
-const pagosModel = require("./Pagos");
-const rolesModel = require("./Roles");
-const usuariosModel = require("./Usuarios");
-const vehiculoModel = require("./Vehiculo");
-const viajesModel = require("./Viajes");
+var DataTypes = require("sequelize").DataTypes;
+var _Estado = require("./Estado");
+var _InformacionConductor = require("./InformacionConductor");
+var _Roles = require("./Roles");
+var _Ubicaciones = require("./Ubicaciones");
+var _Usuarios = require("./Usuarios");
+var _Vehiculo = require("./Vehiculo");
+var _Viajes = require("./Viajes");
 
 function initModels(sequelize) {
-  const DataTypes = Sequelize.DataTypes;
+  var Estado = _Estado(sequelize, DataTypes);
+  var InformacionConductor = _InformacionConductor(sequelize, DataTypes);
+  var Roles = _Roles(sequelize, DataTypes);
+  var Ubicaciones = _Ubicaciones(sequelize, DataTypes);
+  var Usuarios = _Usuarios(sequelize, DataTypes);
+  var Vehiculo = _Vehiculo(sequelize, DataTypes);
+  var Viajes = _Viajes(sequelize, DataTypes);
 
-  // Inicializar modelos
-  const Conductores = conductoresModel(sequelize, DataTypes);
-  const Pagos = pagosModel(sequelize, DataTypes);
-  const Roles = rolesModel(sequelize, DataTypes);
-  const Usuarios = usuariosModel(sequelize, DataTypes);
-  const Vehiculo = vehiculoModel(sequelize, DataTypes);
-  const Viajes = viajesModel(sequelize, DataTypes);
-
-  // Definir relaciones
-  Usuarios.hasMany(Viajes, { foreignKey: "usuario_id" });
-  Viajes.belongsTo(Usuarios, { foreignKey: "usuario_id" });
-
-  Conductores.hasMany(Viajes, { foreignKey: "conductor_id" });
-  Viajes.belongsTo(Conductores, { foreignKey: "conductor_id" });
-
-  Viajes.hasOne(Pagos, { foreignKey: "viaje_id" });
-  Pagos.belongsTo(Viajes, { foreignKey: "viaje_id" });
+  Usuarios.belongsTo(Roles, { as: "rol_Role", foreignKey: "rol"});
+  Roles.hasMany(Usuarios, { as: "Usuarios", foreignKey: "rol"});
+  InformacionConductor.belongsTo(Usuarios, { as: "conductor", foreignKey: "conductor_id"});
+  Usuarios.hasMany(InformacionConductor, { as: "InformacionConductors", foreignKey: "conductor_id"});
+  Ubicaciones.belongsTo(Usuarios, { as: "usuario", foreignKey: "usuario_id"});
+  Usuarios.hasMany(Ubicaciones, { as: "Ubicaciones", foreignKey: "usuario_id"});
+  Vehiculo.belongsTo(Usuarios, { as: "id_conductor_Usuario", foreignKey: "id_conductor"});
+  Usuarios.hasMany(Vehiculo, { as: "Vehiculos", foreignKey: "id_conductor"});
+  Viajes.belongsTo(Usuarios, { as: "usuario", foreignKey: "usuario_id"});
+  Usuarios.hasMany(Viajes, { as: "Viajes", foreignKey: "usuario_id"});
+  InformacionConductor.belongsTo(Vehiculo, { as: "vehiculo_Vehiculo", foreignKey: "vehiculo"});
+  Vehiculo.hasMany(InformacionConductor, { as: "InformacionConductors", foreignKey: "vehiculo"});
 
   return {
-    Conductores,
-    Pagos,
+    Estado,
+    InformacionConductor,
     Roles,
+    Ubicaciones,
     Usuarios,
     Vehiculo,
     Viajes,
   };
 }
-
 module.exports = initModels;
 module.exports.initModels = initModels;
 module.exports.default = initModels;

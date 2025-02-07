@@ -1,44 +1,41 @@
 const Sequelize = require('sequelize');
 module.exports = function(sequelize, DataTypes) {
-  return sequelize.define('Pagos', {
+  return sequelize.define('InformacionConductor', {
     id: {
-      type: DataTypes.UUID,
+      autoIncrement: true,
+      autoIncrementIdentity: true,
+      type: DataTypes.BIGINT,
       allowNull: false,
-      defaultValue: DataTypes.UUIDV4,
       primaryKey: true
     },
-    viaje_id: {
+    conductor_id: {
       type: DataTypes.UUID,
       allowNull: false,
       references: {
-        model: 'Viajes',
+        model: 'Usuarios',
         key: 'id'
       }
     },
-    metodo_pago: {
+    estado_disponibilidad: {
       type: DataTypes.TEXT,
       allowNull: false
     },
-    monto: {
-      type: DataTypes.DECIMAL,
-      allowNull: false
-    },
-    fecha: {
-      type: DataTypes.DATE,
-      allowNull: false
-    },
-    referencia_pago: {
-      type: DataTypes.TEXT,
-      allowNull: true
+    vehiculo: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'Vehiculo',
+        key: 'id'
+      }
     }
   }, {
     sequelize,
-    tableName: 'Pagos',
+    tableName: 'InformacionConductor',
     schema: 'public',
     timestamps: true,
     indexes: [
       {
-        name: "Pagos_pkey",
+        name: "InformacionConductor_pkey",
         unique: true,
         fields: [
           { name: "id" },

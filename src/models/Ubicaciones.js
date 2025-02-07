@@ -1,10 +1,11 @@
 const Sequelize = require('sequelize');
 module.exports = function(sequelize, DataTypes) {
-  return sequelize.define('Viajes', {
+  return sequelize.define('Ubicaciones', {
     id: {
-      type: DataTypes.UUID,
+      autoIncrement: true,
+      autoIncrementIdentity: true,
+      type: DataTypes.BIGINT,
       allowNull: false,
-      defaultValue: DataTypes.UUIDV4,
       primaryKey: true
     },
     usuario_id: {
@@ -15,38 +16,26 @@ module.exports = function(sequelize, DataTypes) {
         key: 'id'
       }
     },
-    origen: {
+    latitud: {
       type: DataTypes.TEXT,
       allowNull: true
     },
-    destino: {
+    longitud: {
       type: DataTypes.TEXT,
       allowNull: true
     },
-    estado: {
-      type: DataTypes.TEXT,
-      allowNull: false
-    },
-    costo: {
-      type: DataTypes.DECIMAL,
-      allowNull: false
-    },
-    fecha_inicio: {
+    timestamp: {
       type: DataTypes.DATE,
-      allowNull: false
-    },
-    fecha_fin: {
-      type: DataTypes.DATE,
-      allowNull: false
+      allowNull: true
     }
   }, {
     sequelize,
-    tableName: 'Viajes',
+    tableName: 'Ubicaciones',
     schema: 'public',
-    timestamps: true,
+    timestamps: false,
     indexes: [
       {
-        name: "Viajes_pkey",
+        name: "Ubicaciones_pkey",
         unique: true,
         fields: [
           { name: "id" },

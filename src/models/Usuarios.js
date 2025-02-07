@@ -12,7 +12,7 @@ module.exports = function (sequelize, DataTypes) {
       },
       nombre: {
         type: DataTypes.TEXT,
-        allowNull: false,
+        allowNull: true,
       },
       email: {
         type: DataTypes.TEXT,
@@ -21,17 +21,21 @@ module.exports = function (sequelize, DataTypes) {
       },
       contraseña: {
         type: DataTypes.TEXT,
-        allowNull: false,
+        allowNull: true,
       },
       rol: {
-        type: DataTypes.TEXT,
-        allowNull: false,
+        type: DataTypes.BIGINT,
+        allowNull: true,
+        references: {
+          model: "Roles",
+          key: "id",
+        },
       },
       apellido: {
         type: DataTypes.TEXT,
-        allowNull: false,
+        allowNull: true,
       },
-      estado: {
+      estado_usuario: {
         type: DataTypes.BOOLEAN,
         allowNull: true,
         defaultValue: true,
