@@ -3,7 +3,8 @@ const express = require("express");
 const sequelize = require("./src/config/database");
 const initModels = require("./src/models/init-models");
 const usuarioRoutes = require("./src/routes/usuario.routes");
-const authRoutes = require('./src/routes/auth.routes');
+const authRoutes = require("./src/routes/auth.routes");
+const perfilRoutes = require("./src/routes/perfil.routes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -15,6 +16,7 @@ app.use(express.urlencoded({ extended: true }));
 // Rutas
 app.use("/api/usuarios", usuarioRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/perfil", perfilRoutes);
 
 // Middleware de manejo de errores
 app.use((err, req, res, next) => {
