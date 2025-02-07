@@ -36,11 +36,6 @@ module.exports = function (sequelize, DataTypes) {
         allowNull: true,
         defaultValue: true,
       },
-      username: {
-        type: DataTypes.TEXT,
-        allowNull: true,
-        unique: "Usuarios_username_key",
-      },
     },
     {
       sequelize,

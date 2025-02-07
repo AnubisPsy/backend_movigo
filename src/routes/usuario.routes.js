@@ -5,13 +5,13 @@ const {
   getUsuarioById,
   createUsuario,
   updateUsuario,
-  getUsuarioByUsername,
+  deleteUsuario,
 } = require("../controllers/usuario.controller");
 
 router.get("/", getUsuarios);
 router.get("/:id", getUsuarioById);
-router.get("/username/:username", getUsuarioByUsername);
 router.post("/", createUsuario);
 router.put("/:id", updateUsuario);
+router.delete("/:id", deleteUsuario);
 
 module.exports = router;

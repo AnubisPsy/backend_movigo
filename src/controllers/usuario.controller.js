@@ -26,31 +26,13 @@ const getUsuarioById = async (req, res) => {
   }
 };
 
-// Obtener usuario por username
-const getUsuarioByUsername = async (req, res) => {
-  try {
-    const { username } = req.params; // Obtener el username de los parámetros
-    const usuario = await Usuarios.findOne({
-      where: { username },
-    });
-
-    if (usuario) {
-      res.json(usuario);
-    } else {
-      res.status(404).json({ message: "Usuario no encontrado" });
-    }
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
 // Para crear usuario
 const createUsuario = async (req, res) => {
   try {
-    const { nombre, apellido, email, contraseña, rol, username } = req.body;
+    const { nombre, apellido, email, contraseña, rol } = req.body;
 
     // Verificar campos requeridos
-    if (!nombre || !apellido || !email || !contraseña || !rol || !username) {
+    if (!nombre || !apellido || !email || !contraseña || !rol) {
       return res.status(400).json({
         message: "Todos los campos son requeridos",
       });
@@ -64,20 +46,12 @@ const createUsuario = async (req, res) => {
       });
     }
 
-    const usernameExistente = await Usuarios.findOne({ where: { username } });
-    if (usernameExistente) {
-      return res.status(400).json({
-        message: "El nombre de usuario ya está registrado",
-      });
-    }
-
     const nuevoUsuario = await Usuarios.create({
       nombre,
       apellido,
       email,
       contraseña,
       rol,
-      username,
     });
 
     res.status(201).json({
@@ -96,7 +70,7 @@ const createUsuario = async (req, res) => {
 const updateUsuario = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, apellido, email, contraseña, rol, username } = req.body;
+    const { nombre, apellido, email, contraseña, rol } = req.body;
 
     const usuario = await Usuarios.findByPk(id);
 
@@ -128,7 +102,6 @@ const updateUsuario = async (req, res) => {
       email: email || usuario.email,
       contraseña: contraseña || usuario.contraseña,
       rol: rol || usuario.rol,
-      username: username || usuario.username,
     });
 
     res.json({
@@ -143,10 +116,34 @@ const updateUsuario = async (req, res) => {
   }
 };
 
+// Eliminar un usuario
+const deleteUsuario = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const usuario = await Usuarios.findByPk(id);
+
+    if (!usuario) {
+      return res.status(404).json({
+        message: "Usuario no encontrado",
+      });
+    }
+
+    await usuario.destroy();
+    res.json({
+      message: "Usuario eliminado exitosamente",
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error al eliminar usuario",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   getUsuarios,
   getUsuarioById,
-  getUsuarioByUsername,
   createUsuario,
   updateUsuario,
+  deleteUsuario,
 };
