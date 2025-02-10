@@ -1,6 +1,7 @@
 var DataTypes = require("sequelize").DataTypes;
 var _Estado = require("./Estado");
 var _InformacionConductor = require("./InformacionConductor");
+var _RecuperarContraseña = require("./RecuperarContraseña");
 var _Roles = require("./Roles");
 var _Ubicaciones = require("./Ubicaciones");
 var _Usuarios = require("./Usuarios");
@@ -10,6 +11,7 @@ var _Viajes = require("./Viajes");
 function initModels(sequelize) {
   var Estado = _Estado(sequelize, DataTypes);
   var InformacionConductor = _InformacionConductor(sequelize, DataTypes);
+  var RecuperarContraseña = _RecuperarContraseña(sequelize, DataTypes);
   var Roles = _Roles(sequelize, DataTypes);
   var Ubicaciones = _Ubicaciones(sequelize, DataTypes);
   var Usuarios = _Usuarios(sequelize, DataTypes);
@@ -20,6 +22,8 @@ function initModels(sequelize) {
   Roles.hasMany(Usuarios, { as: "Usuarios", foreignKey: "rol"});
   InformacionConductor.belongsTo(Usuarios, { as: "conductor", foreignKey: "conductor_id"});
   Usuarios.hasMany(InformacionConductor, { as: "InformacionConductors", foreignKey: "conductor_id"});
+  RecuperarContraseña.belongsTo(Usuarios, { as: "usuario", foreignKey: "usuario_id"});
+  Usuarios.hasMany(RecuperarContraseña, { as: "RecuperarContraseñas", foreignKey: "usuario_id"});
   Ubicaciones.belongsTo(Usuarios, { as: "usuario", foreignKey: "usuario_id"});
   Usuarios.hasMany(Ubicaciones, { as: "Ubicaciones", foreignKey: "usuario_id"});
   Vehiculo.belongsTo(Usuarios, { as: "id_conductor_Usuario", foreignKey: "id_conductor"});
@@ -32,6 +36,7 @@ function initModels(sequelize) {
   return {
     Estado,
     InformacionConductor,
+    RecuperarContraseña,
     Roles,
     Ubicaciones,
     Usuarios,

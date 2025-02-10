@@ -14,6 +14,7 @@ const sequelize = new Sequelize(process.env.DATABASE_URL, {
     min: 0,
     idle: 10000,
   },
+  logging: console.log,
   logging: false,
   schema: "public", // Especificar schema public
   define: {

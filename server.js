@@ -9,6 +9,8 @@ const perfilRoutes = require("./src/routes/perfil.routes");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const models = initModels(sequelize); // Añade esta línea
+
 // Middlewares
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
