@@ -10,10 +10,21 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const models = initModels(sequelize); // Añade esta línea
+const cors = require("cors");
 
 // Middlewares
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.get("/api/test", (req, res) => {
+  res.json({ message: "API funcionando correctamente" });
+});
+
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
 
 // Rutas
 app.use("/api/usuarios", usuarioRoutes);
@@ -35,7 +46,17 @@ async function initializeServer() {
     await sequelize.authenticate();
     console.log("¡Conexión establecida! 🚀");
     await sequelize.sync({ force: false });
-    app.listen(PORT, () => console.log(`Servidor en puerto ${PORT} 🔥`));
+
+    const server = app.listen(PORT, "0.0.0.0", () => {
+      const addresses = Object.values(require("os").networkInterfaces())
+        .flat()
+        .filter((item) => !item.internal && item.family === "IPv4")
+        .map((item) => item.address);
+
+      console.log("Servidor escuchando en:");
+      console.log("Direcciones IP disponibles:", addresses);
+      console.log(`Puerto: ${PORT} 🔥`);
+    });
   } catch (error) {
     console.error("Error:", error);
   }

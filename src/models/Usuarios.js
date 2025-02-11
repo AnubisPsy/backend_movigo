@@ -1,6 +1,8 @@
+const bcrypt = require("bcrypt");
 const Sequelize = require("sequelize");
+
 module.exports = function (sequelize, DataTypes) {
-  return sequelize.define(
+  const Usuario = sequelize.define(
     "Usuarios",
     {
       id: {
@@ -22,6 +24,12 @@ module.exports = function (sequelize, DataTypes) {
       contraseña: {
         type: DataTypes.TEXT,
         allowNull: true,
+        set(value) {
+          if (value) {
+            const hash = bcrypt.hashSync(value, 10);
+            this.setDataValue("contraseña", hash);
+          }
+        },
       },
       rol: {
         type: DataTypes.BIGINT,
@@ -65,4 +73,11 @@ module.exports = function (sequelize, DataTypes) {
       ],
     }
   );
+
+  // Método para verificar contraseña
+  Usuario.prototype.validarContraseña = async function (contraseña) {
+    return bcrypt.compare(String(contraseña), this.contraseña);
+  };
+
+  return Usuario;
 };

@@ -1,4 +1,4 @@
-const supabase = require("../config/supabase");
+//const supabase = require("../config/supabase");
 const { Usuarios, RecuperarContraseña } = require("../models/init-models")(
   require("../config/database")
 );
@@ -8,39 +8,35 @@ const bcrypt = require("bcrypt");
 const login = async (req, res) => {
   try {
     const { email, contraseña } = req.body;
-    console.log("Login intento:", email);
+    console.log("Iniciando proceso de login");
+    console.log("Email:", email);
 
-    if (!email || !contraseña) {
-      return res
-        .status(400)
-        .json({ message: "Email y contraseña son requeridos" });
-    }
+    // 1. Buscar usuario
+    const usuario = await Usuarios.findOne({
+      where: { email },
+      raw: true, // Esto nos dará el objeto plano
+    });
 
-    const usuario = await Usuarios.findOne({ where: { email } });
-    console.log("Usuario encontrado:", usuario?.id);
+    console.log("Usuario encontrado:", usuario ? "Sí" : "No");
 
     if (!usuario) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+      return res.status(401).json({ message: "Usuario no encontrado" });
     }
 
-    const validPassword = await bcrypt.compare(contraseña, usuario.contraseña);
-    console.log("Password válido:", validPassword);
+    // 2. Comparar contraseña directamente con bcrypt
+    const contraseñaValida = await bcrypt.compare(
+      contraseña,
+      usuario.contraseña
+    );
+    console.log("Contraseña recibida:", contraseña);
+    console.log("Hash almacenado:", usuario.contraseña);
+    console.log("¿Contraseña válida?:", contraseñaValida);
 
-    if (!validPassword) {
+    if (!contraseñaValida) {
       return res.status(401).json({ message: "Contraseña incorrecta" });
     }
 
-    // Auth con Supabase
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password: contraseña,
-      });
-      if (error) console.error("Error Supabase:", error);
-    } catch (e) {
-      console.error("Error Supabase auth:", e);
-    }
-
+    // 3. Login exitoso
     res.json({
       message: "Login exitoso",
       user: {
@@ -51,57 +47,39 @@ const login = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error login:", error);
-    res.status(500).json({ message: "Error al iniciar sesión" });
+    console.error("Error en login:", error);
+    res.status(500).json({
+      message: "Error al iniciar sesión",
+      error: error.message,
+    });
   }
 };
 
 const register = async (req, res) => {
   try {
-    const { email, contraseña, nombre, apellido, rol = 1 } = req.body;
+    const { email, contraseña, nombre, apellido } = req.body;
+    const rol = parseInt(req.body.rol) || 1;
 
-    // Primero verificamos si el usuario existe
+    // Verificar usuario existente
     const usuarioExistente = await Usuarios.findOne({ where: { email } });
     if (usuarioExistente) {
-      return res.status(400).json({ message: "Email ya registrado" });
+      return res.status(400).json({ message: "El email ya está registrado" });
     }
 
-    // Hash de la contraseña
-    const hashedPassword = await bcrypt.hash(contraseña, 10);
-
-    // Primero creamos el usuario en nuestra base de datos
+    // Crear usuario (el modelo se encargará de hashear la contraseña)
     const nuevoUsuario = await Usuarios.create({
       email,
-      contraseña: hashedPassword,
+      contraseña, // Pasar la contraseña sin hashear
       nombre,
       apellido,
       rol,
+      estado_usuario: true,
     });
 
-    // Luego intentamos crear el usuario en Supabase
-    try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password: contraseña,
-        options: {
-          data: {
-            nombre,
-            apellido,
-            rol,
-          },
-        },
-      });
+    // Log para verificar
+    console.log("Contraseña original:", contraseña);
+    console.log("Contraseña guardada:", nuevoUsuario.contraseña);
 
-      if (authError) {
-        console.error("Error Supabase:", authError);
-        // Aún si falla Supabase, ya tenemos el usuario en nuestra DB
-      }
-    } catch (supabaseError) {
-      console.error("Error en Supabase:", supabaseError);
-      // No devolvemos error, continuamos porque el usuario ya está en nuestra DB
-    }
-
-    // Devolvemos éxito
     res.status(201).json({
       message: "Usuario registrado exitosamente",
       usuario: {
@@ -112,15 +90,12 @@ const register = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error general:", error);
-    res.status(500).json({
-      message: "Error al registrar usuario",
-      error: error.message,
-    });
+    console.error("Error detallado en registro:", error);
+    res.status(500).json({ message: "Error al registrar usuario" });
   }
 };
 
-const transporter = require("../config/mailer");
+// const transporter = require("../config/mailer");
 
 const forgotPassword = async (req, res) => {
   try {
