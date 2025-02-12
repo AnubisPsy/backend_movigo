@@ -24,12 +24,6 @@ module.exports = function (sequelize, DataTypes) {
       contraseña: {
         type: DataTypes.TEXT,
         allowNull: true,
-        set(value) {
-          if (value) {
-            const hash = bcrypt.hashSync(value, 10);
-            this.setDataValue("contraseña", hash);
-          }
-        },
       },
       rol: {
         type: DataTypes.BIGINT,
