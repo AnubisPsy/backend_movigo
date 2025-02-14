@@ -45,7 +45,7 @@ const login = async (req, res) => {
         id: usuario.id,
         nombre: usuario.nombre,
         email: usuario.email,
-        rol: usuario.rol,
+        rol: parseInt(usuario.rol),
       },
     });
   } catch (error) {

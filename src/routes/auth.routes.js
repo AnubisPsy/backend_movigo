@@ -1,4 +1,5 @@
 const express = require("express");
+const checkRole = require("../middlewares/checkRole");
 const router = express.Router();
 const {
   login,
@@ -14,7 +15,8 @@ router.post("/login", login);
 router.post("/register", register);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
-router.put("/password", updatePassword); // Mover esta ruta antes de las rutas con parámetros
+router.put("/password", updatePassword);
+
 router.get("/:id", getPerfil);
 router.put("/:id", updatePerfil);
 router.post("/verify-code", verifyCode);

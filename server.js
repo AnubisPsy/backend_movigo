@@ -5,6 +5,7 @@ const initModels = require("./src/models/init-models");
 const usuarioRoutes = require("./src/routes/usuario.routes");
 const authRoutes = require("./src/routes/auth.routes");
 const perfilRoutes = require("./src/routes/perfil.routes");
+const viajeRoutes = require("./src/routes/viaje.routes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -30,6 +31,7 @@ app.use((req, res, next) => {
 app.use("/api/usuarios", usuarioRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/perfil", perfilRoutes);
+app.use("/api/viajes", viajeRoutes);
 
 // Middleware de manejo de errores
 app.use((err, req, res, next) => {
