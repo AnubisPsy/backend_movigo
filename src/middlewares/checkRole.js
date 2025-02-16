@@ -1,50 +1,37 @@
-// middlewares/checkRole.js
-const sequelize = require("../config/database");
-const { Usuarios } = require("../models/init-models")(sequelize);
+const jwt = require("jsonwebtoken");
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const checkRole = (allowedRoles) => {
   return async (req, res, next) => {
     try {
-      const userId = req.headers["user-id"] || req.body.usuario_id;
-      console.log("\n=== DEBUG CHECK ROLE ===");
-      console.log("userId:", userId);
-      console.log("allowedRoles:", allowedRoles, typeof allowedRoles[0]);
-
-      const usuario = await Usuarios.findByPk(userId);
-      console.log("Usuario encontrado:", {
-        id: usuario?.id,
-        email: usuario?.email,
-        rol: usuario?.rol,
-        tipoDato: typeof usuario?.rol,
-      });
-
-      if (!usuario) {
-        return res.status(404).json({
-          message: "Usuario no encontrado",
+      console.log("=== DEBUG CHECK ROLE ===");
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        console.log("No se encontró token válido");
+        return res.status(401).json({
+          message: "No autorizado",
+          error: "Token no proporcionado",
         });
       }
 
-      const rolUsuario = parseInt(usuario.rol);
-      console.log("Comparación de roles:", {
-        rolUsuario,
-        tipoRolUsuario: typeof rolUsuario,
-        allowedRoles,
-        includes: allowedRoles.includes(rolUsuario),
-      });
+      const token = authHeader.split(" ")[1];
+      const decoded = jwt.verify(token, JWT_SECRET);
+      console.log("Token decodificado:", decoded);
 
-      if (!allowedRoles.includes(rolUsuario)) {
+      if (!allowedRoles.includes(parseInt(decoded.rol))) {
         return res.status(403).json({
-          message: "No tienes permiso para acceder a este recurso",
+          message: "No autorizado",
+          error: "Rol insuficiente",
         });
       }
 
-      req.user = usuario;
+      req.user = decoded;
       next();
     } catch (error) {
       console.error("Error en checkRole:", error);
-      res.status(500).json({
-        message: "Error al verificar rol",
-        error: error.message,
+      return res.status(401).json({
+        message: "No autorizado",
+        error: "jwt malformed",
       });
     }
   };

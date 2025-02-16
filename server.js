@@ -4,8 +4,8 @@ const sequelize = require("./src/config/database");
 const initModels = require("./src/models/init-models");
 const usuarioRoutes = require("./src/routes/usuario.routes");
 const authRoutes = require("./src/routes/auth.routes");
-const perfilRoutes = require("./src/routes/perfil.routes");
 const viajeRoutes = require("./src/routes/viaje.routes");
+const vehiculoRoutes = require("./src/routes/vehiculo.routes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -30,8 +30,8 @@ app.use((req, res, next) => {
 // Rutas
 app.use("/api/usuarios", usuarioRoutes);
 app.use("/api/auth", authRoutes);
-app.use("/api/perfil", perfilRoutes);
 app.use("/api/viajes", viajeRoutes);
+app.use("/api/vehiculos", vehiculoRoutes);
 
 // Middleware de manejo de errores
 app.use((err, req, res, next) => {

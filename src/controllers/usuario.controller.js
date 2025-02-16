@@ -179,10 +179,72 @@ const deleteUsuario = async (req, res) => {
   }
 };
 
+const getUserProfile = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const usuario = await Usuarios.findByPk(id, {
+      attributes: { exclude: ["contraseña"] }, // Excluimos la contraseña al obtener el perfil
+    });
+
+    if (!usuario) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+
+    res.json(usuario);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Nueva función para actualizar perfil
+const updateUserProfile = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombre, apellido, email } = req.body;
+
+    const usuario = await Usuarios.findByPk(id);
+    if (!usuario) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+
+    // Verificar email único
+    if (email && email !== usuario.email) {
+      const emailExiste = await Usuarios.findOne({
+        where: {
+          email,
+          id: { [Op.ne]: id },
+        },
+      });
+      if (emailExiste) {
+        return res.status(400).json({ message: "Email ya registrado" });
+      }
+    }
+
+    await usuario.update({
+      nombre: nombre || usuario.nombre,
+      apellido: apellido || usuario.apellido,
+      email: email || usuario.email,
+    });
+
+    // Excluir la contraseña de la respuesta
+    const usuarioActualizado = usuario.toJSON();
+    delete usuarioActualizado.contraseña;
+
+    res.json({
+      message: "Perfil actualizado exitosamente",
+      usuario: usuarioActualizado,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   getUsuarios,
   getUsuarioById,
   createUsuario,
   updateUsuario,
   deleteUsuario,
+  getUserProfile,
+  updateUserProfile,
 };

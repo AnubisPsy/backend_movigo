@@ -1,51 +1,47 @@
-//const supabase = require("../config/supabase");
-const transporter = require("../config/mailer");
-
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
 const { Usuarios, RecuperarContraseña } = require("../models/init-models")(
   require("../config/database")
 );
-const { Op } = require("sequelize"); // Añade esta línea
-const bcrypt = require("bcrypt");
+const { Op } = require("sequelize");
+const transporter = require("../config/mailer");
+
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const login = async (req, res) => {
   try {
-    const { email, contraseña } = req.body;
-    console.log("Iniciando proceso de login");
-    console.log("Email:", email);
+    const { email, password } = req.body;
 
-    // 1. Buscar usuario
     const usuario = await Usuarios.findOne({
       where: { email },
-      raw: true, // Esto nos dará el objeto plano
     });
 
-    console.log("Usuario encontrado:", usuario ? "Sí" : "No");
-
-    if (!usuario) {
-      return res.status(401).json({ message: "Usuario no encontrado" });
+    if (!usuario || !(await bcrypt.compare(password, usuario.contraseña))) {
+      return res.status(401).json({
+        message: "Credenciales inválidas",
+      });
     }
 
-    // 2. Comparar contraseña directamente con bcrypt
-    const contraseñaValida = await bcrypt.compare(
-      contraseña,
-      usuario.contraseña
+    // Crear un JWT válido
+    const token = jwt.sign(
+      {
+        id: usuario.id,
+        email: usuario.email,
+        rol: usuario.rol,
+      },
+      JWT_SECRET,
+      { expiresIn: "24h" }
     );
-    console.log("Contraseña recibida:", contraseña);
-    console.log("Hash almacenado:", usuario.contraseña);
-    console.log("¿Contraseña válida?:", contraseñaValida);
 
-    if (!contraseñaValida) {
-      return res.status(401).json({ message: "Contraseña incorrecta" });
-    }
-
-    // 3. Login exitoso
     res.json({
       message: "Login exitoso",
+      token,
       user: {
         id: usuario.id,
         nombre: usuario.nombre,
+        apellido: usuario.apellido,
         email: usuario.email,
-        rol: parseInt(usuario.rol),
+        rol: usuario.rol,
       },
     });
   } catch (error) {
