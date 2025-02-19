@@ -18,10 +18,6 @@ module.exports = function (sequelize, DataTypes) {
           key: "id",
         },
       },
-      estado_disponibilidad: {
-        type: DataTypes.TEXT,
-        allowNull: false,
-      },
       vehiculo: {
         type: DataTypes.UUID,
         allowNull: true,
@@ -45,7 +41,7 @@ module.exports = function (sequelize, DataTypes) {
       sequelize,
       tableName: "InformacionConductor",
       schema: "public",
-      timestamps: true,
+      timestamps: false,
       indexes: [
         {
           name: "InformacionConductor_pkey",

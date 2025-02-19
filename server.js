@@ -6,11 +6,10 @@ const usuarioRoutes = require("./src/routes/usuario.routes");
 const authRoutes = require("./src/routes/auth.routes");
 const viajeRoutes = require("./src/routes/viaje.routes");
 const vehiculoRoutes = require("./src/routes/vehiculo.routes");
-
+const informacionConductorRoutes = require("./src/routes/informacionConductor.routes");
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-const models = initModels(sequelize); // Añade esta línea
+const models = initModels(sequelize);
 const cors = require("cors");
 
 // Middlewares
@@ -32,6 +31,7 @@ app.use("/api/usuarios", usuarioRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/viajes", viajeRoutes);
 app.use("/api/vehiculos", vehiculoRoutes);
+app.use("/api/conductor/info", informacionConductorRoutes);
 
 // Middleware de manejo de errores
 app.use((err, req, res, next) => {
@@ -48,13 +48,11 @@ async function initializeServer() {
     await sequelize.authenticate();
     console.log("¡Conexión establecida! 🚀");
     await sequelize.sync({ force: false });
-
     const server = app.listen(PORT, "0.0.0.0", () => {
       const addresses = Object.values(require("os").networkInterfaces())
         .flat()
         .filter((item) => !item.internal && item.family === "IPv4")
         .map((item) => item.address);
-
       console.log("Servidor escuchando en:");
       console.log("Direcciones IP disponibles:", addresses);
       console.log(`Puerto: ${PORT} 🔥`);

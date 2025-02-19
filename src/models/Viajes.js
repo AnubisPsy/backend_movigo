@@ -17,35 +17,45 @@ module.exports = function (sequelize, DataTypes) {
         },
       },
       origen: {
-        type: DataTypes.UUID, // Cambiado a UUID ya que es una referencia
-        allowNull: true,
-        references: {
-          model: "Ubicaciones",
-          key: "id",
-        },
+        type: DataTypes.TEXT, // Cambiado a TEXT por ahora
+        allowNull: false,
       },
       destino: {
-        type: DataTypes.UUID, // Cambiado a UUID ya que es una referencia
-        allowNull: true,
-        references: {
-          model: "Ubicaciones",
-          key: "id",
-        },
+        type: DataTypes.TEXT, // Cambiado a TEXT por ahora
+        allowNull: false,
       },
       estado: {
-        type: DataTypes.TEXT,
+        type: DataTypes.INTEGER, // Cambiado a INTEGER para IDs de estado
         allowNull: false,
+        references: {
+          model: "Estado",
+          key: "id",
+        },
       },
       costo: {
         type: DataTypes.DECIMAL,
         allowNull: true,
+        defaultValue: 0,
       },
       fecha_inicio: {
         type: DataTypes.DATE,
-        allowNull: false,
+        allowNull: true,
       },
       fecha_fin: {
         type: DataTypes.DATE,
+        allowNull: true,
+      },
+      tiempo_cancelacion_expirado: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
+      conductor_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
+      vehiculo_id: {
+        type: DataTypes.UUID,
         allowNull: true,
       },
     },
@@ -63,18 +73,6 @@ module.exports = function (sequelize, DataTypes) {
       ],
     }
   );
-
-  // Definir las asociaciones
-  Viajes.associate = (models) => {
-    Viajes.belongsTo(models.Ubicaciones, {
-      as: "ubicacionOrigen",
-      foreignKey: "origen",
-    });
-    Viajes.belongsTo(models.Ubicaciones, {
-      as: "ubicacionDestino",
-      foreignKey: "destino",
-    });
-  };
 
   return Viajes;
 };
