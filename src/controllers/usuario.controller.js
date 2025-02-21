@@ -98,7 +98,7 @@ const createUsuario = async (req, res) => {
   }
 };
 
-const updateUsuario = async (req, res) => {
+/* const updateUsuario = async (req, res) => {
   try {
     const { id } = req.params;
     const { nombre, apellido, email, contraseña, rol, estado_usuario } =
@@ -157,7 +157,7 @@ const updateUsuario = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: "Error al actualizar usuario" });
   }
-};
+}; */
 
 const deleteUsuario = async (req, res) => {
   try {
@@ -199,16 +199,35 @@ const getUserProfile = async (req, res) => {
 // Nueva función para actualizar perfil
 const updateUserProfile = async (req, res) => {
   try {
+    console.log("Datos recibidos:", req.body);
+    console.log("Parámetros recibidos:", req.params);
+
     const { id } = req.params;
     const { nombre, apellido, email } = req.body;
 
+    // Validar campos recibidos
+    if (!nombre || !apellido || !email) {
+      return res.status(400).json({
+        success: false,
+        message: "Todos los campos son requeridos",
+        camposFaltantes: {
+          nombre: !nombre,
+          apellido: !apellido,
+          email: !email,
+        },
+      });
+    }
+
     const usuario = await Usuarios.findByPk(id);
     if (!usuario) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+      return res.status(404).json({
+        success: false,
+        message: "Usuario no encontrado",
+      });
     }
 
     // Verificar email único
-    if (email && email !== usuario.email) {
+    if (email !== usuario.email) {
       const emailExiste = await Usuarios.findOne({
         where: {
           email,
@@ -216,14 +235,18 @@ const updateUserProfile = async (req, res) => {
         },
       });
       if (emailExiste) {
-        return res.status(400).json({ message: "Email ya registrado" });
+        return res.status(400).json({
+          success: false,
+          message: "Email ya registrado",
+        });
       }
     }
 
+    // Actualizar usuario
     await usuario.update({
-      nombre: nombre || usuario.nombre,
-      apellido: apellido || usuario.apellido,
-      email: email || usuario.email,
+      nombre,
+      apellido,
+      email,
     });
 
     // Excluir la contraseña de la respuesta
@@ -231,11 +254,17 @@ const updateUserProfile = async (req, res) => {
     delete usuarioActualizado.contraseña;
 
     res.json({
+      success: true,
       message: "Perfil actualizado exitosamente",
       usuario: usuarioActualizado,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Error detallado:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al actualizar perfil",
+      errorDetalle: error.message,
+    });
   }
 };
 
@@ -243,7 +272,7 @@ module.exports = {
   getUsuarios,
   getUsuarioById,
   createUsuario,
-  updateUsuario,
+  //updateUsuario,
   deleteUsuario,
   getUserProfile,
   updateUserProfile,

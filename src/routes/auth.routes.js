@@ -1,5 +1,4 @@
 const express = require("express");
-const checkRole = require("../middlewares/checkRole");
 const router = express.Router();
 const {
   login,

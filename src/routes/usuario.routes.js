@@ -14,11 +14,11 @@ const {
 router.get("/", getUsuarios);
 router.get("/:id", getUsuarioById);
 router.post("/", createUsuario);
-router.put("/:id", updateUsuario);
+//router.put("/:id", updateUsuario);
 router.delete("/:id", deleteUsuario);
 
 // Rutas de perfil
 router.get("/profile/:id", getUserProfile);
-router.put("/profile/:id", updateUserProfile);
+router.put('/:id', updateUserProfile);
 
 module.exports = router;

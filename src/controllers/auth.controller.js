@@ -205,44 +205,75 @@ const resetPassword = async (req, res) => {
   }
 };
 
+// usuario.controller.js o auth.controller.js
 const updatePassword = async (req, res) => {
   try {
-    const { id, currentPassword, newPassword } = req.body;
-    console.log("Datos recibidos:", { id, currentPassword, newPassword }); // Para debug
+    console.log("Cuerpo de la solicitud:", req.body);
+    console.log("Parámetros de la solicitud:", req.params);
 
-    // Validar UUID
-    if (
-      !id ||
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
-        id
-      )
-    ) {
-      return res.status(400).json({ message: "ID inválido" });
+    const { id } = req.body;
+    const { currentPassword, newPassword } = req.body;
+
+    // Verificar campos faltantes
+    const missingFields = [];
+
+    if (!id) missingFields.push("id");
+    if (!currentPassword) missingFields.push("currentPassword");
+    if (!newPassword) missingFields.push("newPassword");
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Campos faltantes",
+        missingFields: missingFields,
+      });
     }
 
-    // Buscar usuario
+    // Buscar el usuario
     const usuario = await Usuarios.findByPk(id);
+
+    // Verificar si el usuario existe
     if (!usuario) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+      return res.status(404).json({
+        success: false,
+        message: "Usuario no encontrado",
+      });
     }
 
     // Verificar contraseña actual
-    const contraseñaValida = await bcrypt.compare(
-      currentPassword,
-      usuario.contraseña
-    );
-    if (!contraseñaValida) {
-      return res.status(401).json({ message: "Contraseña actual incorrecta" });
+    const isValid = await bcrypt.compare(currentPassword, usuario.contraseña);
+    if (!isValid) {
+      return res.status(401).json({
+        success: false,
+        message: "Contraseña actual incorrecta",
+      });
+    }
+
+    // Validar la nueva contraseña (por ejemplo, longitud mínima)
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "La nueva contraseña debe tener al menos 6 caracteres",
+      });
     }
 
     // Hash de la nueva contraseña
     const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Actualizar la contraseña
     await usuario.update({ contraseña: hashedPassword });
 
-    res.json({ message: "Contraseña actualizada exitosamente" });
+    res.json({
+      success: true,
+      message: "Contraseña actualizada exitosamente",
+    });
   } catch (error) {
-    console.error("Error:", error);
-    res.status(500).json({ message: "Error al actualizar contraseña" });
+    console.error("Error al actualizar contraseña:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al actualizar contraseña",
+      error: error.message,
+    });
   }
 };
 
