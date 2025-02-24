@@ -499,6 +499,10 @@ const completarViaje = async (req, res) => {
 const obtenerHistorial = async (req, res) => {
   try {
     const usuario = req.user;
+    console.log("=== DEBUG HISTORIAL ===");
+    console.log("Usuario ID:", usuario.id);
+    console.log("Rol de usuario:", usuario.rol);
+
     let viajes;
 
     // Configurar opciones para el formato de hora Honduras
@@ -511,6 +515,8 @@ const obtenerHistorial = async (req, res) => {
 
     if (usuario.rol === "1") {
       // Pasajero
+      console.log("Obteniendo historial para PASAJERO");
+
       viajes = await Viajes.findAll({
         where: {
           usuario_id: usuario.id,
@@ -522,26 +528,64 @@ const obtenerHistorial = async (req, res) => {
             as: "Conductor",
             attributes: ["nombre", "apellido"],
           },
+          // Añadir inclusión del vehículo
+          {
+            model: Vehiculo,
+            attributes: ["marca", "modelo", "año", "placa", "color"],
+          },
         ],
         order: [["fecha_inicio", "DESC"]], // Más recientes primero
       });
 
+      console.log("Viajes encontrados:", viajes.length);
+
+      // Depurar el primer viaje para ver su estructura
+      if (viajes.length > 0) {
+        console.log("Primer viaje (raw):", JSON.stringify(viajes[0], null, 2));
+        console.log("Tiene vehiculo?", viajes[0].Vehiculo ? "SÍ" : "NO");
+        console.log("Vehiculo ID:", viajes[0].vehiculo_id);
+      }
+
       // Formatear datos para pasajero
-      const historialPasajero = viajes.map((viaje) => ({
-        fecha: new Date(viaje.fecha_inicio).toLocaleDateString("es-HN"),
-        conductor: `${viaje.Conductor.nombre} ${viaje.Conductor.apellido}`,
-        origen: viaje.origen,
-        destino: viaje.destino,
-        costo: viaje.costo,
-        hora_inicio: new Date(viaje.fecha_inicio).toLocaleTimeString(
-          "es-HN",
-          opcionesHN
-        ),
-        hora_fin: new Date(viaje.fecha_fin).toLocaleTimeString(
-          "es-HN",
-          opcionesHN
-        ),
-      }));
+      const historialPasajero = viajes.map((viaje) => {
+        // Crear objeto base
+        const viajeFormateado = {
+          fecha: new Date(viaje.fecha_inicio).toLocaleDateString("es-HN"),
+          conductor: viaje.Conductor
+            ? `${viaje.Conductor.nombre} ${viaje.Conductor.apellido}`
+            : "Conductor desconocido",
+          origen: viaje.origen,
+          destino: viaje.destino,
+          costo: viaje.costo,
+          hora_inicio: new Date(viaje.fecha_inicio).toLocaleTimeString(
+            "es-HN",
+            opcionesHN
+          ),
+          hora_fin: new Date(viaje.fecha_fin).toLocaleTimeString(
+            "es-HN",
+            opcionesHN
+          ),
+        };
+
+        // Añadir información del vehículo
+        if (viaje.Vehiculo) {
+          viajeFormateado.vehiculo = `${viaje.Vehiculo.marca} ${viaje.Vehiculo.modelo} - ${viaje.Vehiculo.placa} (${viaje.Vehiculo.color})`;
+          console.log("Vehículo formateado:", viajeFormateado.vehiculo);
+        } else {
+          viajeFormateado.vehiculo = "Vehículo no disponible";
+          console.log("Vehículo no encontrado para viaje ID:", viaje.id);
+        }
+
+        return viajeFormateado;
+      });
+
+      // Depurar el resultado final
+      console.log(
+        "Primer elemento del historial formateado:",
+        historialPasajero.length > 0
+          ? JSON.stringify(historialPasajero[0], null, 2)
+          : "No hay elementos"
+      );
 
       return res.json({
         success: true,
@@ -551,17 +595,21 @@ const obtenerHistorial = async (req, res) => {
       // Conductor
       viajes = await Viajes.findAll({
         where: {
-          conductor_id: usuario.id,
+          usuario_id: usuario.id,
           estado: 4, // Solo viajes COMPLETADOS
         },
         include: [
           {
             model: Usuarios,
-            as: "Usuario",
+            as: "Conductor",
             attributes: ["nombre", "apellido"],
           },
+          {
+            model: Vehiculo, // Añadir el modelo Vehiculo
+            attributes: ["marca", "modelo", "año", "placa", "color"],
+          },
         ],
-        order: [["fecha_inicio", "DESC"]], // Más recientes primero
+        order: [["fecha_inicio", "DESC"]],
       });
 
       // Formatear datos para conductor
@@ -602,5 +650,5 @@ module.exports = {
   tomarViaje,
   iniciarViaje,
   completarViaje,
-  obtenerHistorial
+  obtenerHistorial,
 };
