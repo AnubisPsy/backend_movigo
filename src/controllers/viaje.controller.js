@@ -34,7 +34,6 @@ const crearViaje = async (req, res) => {
     });
 
     // Timer para marcar expiración de tiempo de cancelación (5 minutos)
-    // Timer para marcar expiración de tiempo de cancelación (30 segundos en lugar de 5 minutos)
     setTimeout(async () => {
       const viajeActual = await Viajes.findByPk(viaje.id);
       if (viajeActual && viajeActual.estado === 1) {
@@ -229,7 +228,7 @@ const tomarViaje = async (req, res) => {
     });
 
     // Obtener el viaje actualizado con todas sus relaciones
-    const viajeActualizado = await Viajes.findOne({
+    const viajeAceptado = await Viajes.findOne({
       where: { id },
       include: [
         {
@@ -253,10 +252,23 @@ const tomarViaje = async (req, res) => {
       ],
     });
 
+    // Emitir evento WebSocket con el nombre más descriptivo
+    const io = req.app.get("socketio");
+    if (io) {
+      io.emit(`viaje-${viaje.usuario_id}`, {
+        tipo: "viaje-aceptado",
+        data: viajeAceptado,
+      });
+      console.log(
+        `Evento viaje-aceptado emitido para usuario ${viaje.usuario_id}`
+      );
+    }
+
+    // Enviar respuesta con el nombre más descriptivo
     res.json({
       success: true,
       message: "Viaje tomado exitosamente",
-      data: viajeActualizado,
+      data: viajeAceptado,
     });
   } catch (error) {
     console.error("Error al tomar viaje:", error);
@@ -337,6 +349,18 @@ const iniciarViaje = async (req, res) => {
       estado: 3, // EN_CURSO
       fecha_inicio: fechaInicioHN,
     });
+
+    // Agregar después de viaje.update() en iniciarViaje
+    const io = req.app.get("socketio");
+    if (io) {
+      io.emit(`viaje-${viaje.usuario_id}`, {
+        tipo: "viaje-iniciado",
+        data: viaje,
+      });
+      console.log(
+        `Evento viaje-iniciado emitido para usuario ${viaje.usuario_id}`
+      );
+    }
 
     res.json({
       success: true,
@@ -453,8 +477,8 @@ const completarViaje = async (req, res) => {
       costo: costoFinal,
     });
 
-    // Obtener el viaje actualizado
-    const viajeActualizado = await Viajes.findOne({
+    // Obtener el viaje completado
+    const viajeCompletado = await Viajes.findOne({
       where: { id },
       include: [
         {
@@ -478,11 +502,26 @@ const completarViaje = async (req, res) => {
       ],
     });
 
+    // Emitir evento WebSocket
+    const io = req.app.get("socketio");
+    if (io) {
+      io.emit(`viaje-${viaje.usuario_id}`, {
+        tipo: "viaje-completado",
+        data: {
+          ...viajeCompletado.toJSON(),
+          duracion_minutos: duracionMinutos,
+        },
+      });
+      console.log(
+        `Evento viaje-completado emitido para usuario ${viaje.usuario_id}`
+      );
+    }
+
     res.json({
       success: true,
       message: "Viaje finalizado exitosamente",
       data: {
-        ...viajeActualizado.toJSON(),
+        ...viajeCompletado.toJSON(),
         duracion_minutos: duracionMinutos,
       },
     });
@@ -517,116 +556,137 @@ const obtenerHistorial = async (req, res) => {
       // Pasajero
       console.log("Obteniendo historial para PASAJERO");
 
+      // Quitar el filtro de estado para mostrar todos los viajes
       viajes = await Viajes.findAll({
         where: {
           usuario_id: usuario.id,
-          estado: 4, // Solo viajes COMPLETADOS
+          // Eliminar la condición "estado: 4" para obtener todos los estados
         },
         include: [
           {
             model: Usuarios,
-            as: "Conductor",
+            as: "Usuario", // Incluir el pasajero
             attributes: ["nombre", "apellido"],
           },
-          // Añadir inclusión del vehículo
+          {
+            model: Usuarios,
+            as: "Conductor", // Importante: incluir al conductor
+            attributes: ["nombre", "apellido"],
+            required: false, // Hacerlo opcional para viajes sin conductor asignado
+          },
           {
             model: Vehiculo,
             attributes: ["marca", "modelo", "año", "placa", "color"],
+            required: false, // Hacerlo opcional
+          },
+          {
+            model: Estado,
+            attributes: ["id", "estado", "descripción"],
           },
         ],
-        order: [["fecha_inicio", "DESC"]], // Más recientes primero
+        order: [["created_at", "DESC"]], // Ordenar por fecha de creación en lugar de inicio
       });
 
       console.log("Viajes encontrados:", viajes.length);
 
-      // Depurar el primer viaje para ver su estructura
-      if (viajes.length > 0) {
-        console.log("Primer viaje (raw):", JSON.stringify(viajes[0], null, 2));
-        console.log("Tiene vehiculo?", viajes[0].Vehiculo ? "SÍ" : "NO");
-        console.log("Vehiculo ID:", viajes[0].vehiculo_id);
-      }
-
-      // Formatear datos para pasajero
+      // Formatear datos para pasajero (modificado para todos los estados)
       const historialPasajero = viajes.map((viaje) => {
-        // Crear objeto base
+        // Crear objeto base con más información sobre el estado
         const viajeFormateado = {
-          fecha: new Date(viaje.fecha_inicio).toLocaleDateString("es-HN"),
-          conductor: viaje.Conductor
-            ? `${viaje.Conductor.nombre} ${viaje.Conductor.apellido}`
-            : "Conductor desconocido",
+          id: viaje.id,
+          fecha: viaje.created_at
+            ? new Date(viaje.created_at).toLocaleDateString("es-HN")
+            : "Fecha no disponible",
+          estado: viaje.Estado ? viaje.Estado.estado : "Estado desconocido",
+          estado_id: viaje.estado,
           origen: viaje.origen,
           destino: viaje.destino,
-          costo: viaje.costo,
-          hora_inicio: new Date(viaje.fecha_inicio).toLocaleTimeString(
-            "es-HN",
-            opcionesHN
-          ),
-          hora_fin: new Date(viaje.fecha_fin).toLocaleTimeString(
-            "es-HN",
-            opcionesHN
-          ),
+          costo: viaje.costo || 0,
         };
 
-        // Añadir información del vehículo
+        // Añadir información de hora inicio/fin solo si están disponibles
+        if (viaje.fecha_inicio) {
+          viajeFormateado.hora_inicio = new Date(
+            viaje.fecha_inicio
+          ).toLocaleTimeString("es-HN", opcionesHN);
+        }
+
+        if (viaje.fecha_fin) {
+          viajeFormateado.hora_fin = new Date(
+            viaje.fecha_fin
+          ).toLocaleTimeString("es-HN", opcionesHN);
+        }
+
+        // Añadir información del conductor si existe
+        if (viaje.Conductor) {
+          viajeFormateado.conductor = `${viaje.Conductor.nombre} ${viaje.Conductor.apellido}`;
+        } else {
+          viajeFormateado.conductor = "Sin conductor asignado";
+        }
+
+        // Añadir información del vehículo si existe
         if (viaje.Vehiculo) {
           viajeFormateado.vehiculo = `${viaje.Vehiculo.marca} ${viaje.Vehiculo.modelo} - ${viaje.Vehiculo.placa} (${viaje.Vehiculo.color})`;
-          console.log("Vehículo formateado:", viajeFormateado.vehiculo);
         } else {
-          viajeFormateado.vehiculo = "Vehículo no disponible";
-          console.log("Vehículo no encontrado para viaje ID:", viaje.id);
+          viajeFormateado.vehiculo = "Vehículo no asignado";
         }
 
         return viajeFormateado;
       });
-
-      // Depurar el resultado final
-      console.log(
-        "Primer elemento del historial formateado:",
-        historialPasajero.length > 0
-          ? JSON.stringify(historialPasajero[0], null, 2)
-          : "No hay elementos"
-      );
 
       return res.json({
         success: true,
         data: historialPasajero,
       });
     } else if (usuario.rol === "2") {
-      // Conductor
+      // Conductor - aplicar la misma lógica pero con conductor_id
       viajes = await Viajes.findAll({
         where: {
-          usuario_id: usuario.id,
-          estado: 4, // Solo viajes COMPLETADOS
+          conductor_id: usuario.id,
+          // Eliminar la condición "estado: 4" para obtener todos
         },
         include: [
           {
             model: Usuarios,
-            as: "Conductor",
+            as: "Usuario", // Incluir el usuario (pasajero)
             attributes: ["nombre", "apellido"],
           },
           {
-            model: Vehiculo, // Añadir el modelo Vehiculo
+            model: Vehiculo,
             attributes: ["marca", "modelo", "año", "placa", "color"],
+            required: false,
+          },
+          {
+            model: Estado,
+            attributes: ["id", "estado", "descripción"],
           },
         ],
-        order: [["fecha_inicio", "DESC"]],
+        order: [["created_at", "DESC"]],
       });
 
-      // Formatear datos para conductor
+      // Formatear datos para conductor (adaptado a todos los estados)
       const historialConductor = viajes.map((viaje) => ({
-        fecha: new Date(viaje.fecha_inicio).toLocaleDateString("es-HN"),
-        pasajero: `${viaje.Usuario.nombre} ${viaje.Usuario.apellido}`,
+        id: viaje.id,
+        fecha: viaje.created_at
+          ? new Date(viaje.created_at).toLocaleDateString("es-HN")
+          : "Fecha no disponible",
+        estado: viaje.Estado ? viaje.Estado.estado : "Estado desconocido",
+        estado_id: viaje.estado,
+        pasajero: viaje.Usuario
+          ? `${viaje.Usuario.nombre} ${viaje.Usuario.apellido}`
+          : "Pasajero desconocido",
         origen: viaje.origen,
         destino: viaje.destino,
-        costo: viaje.costo,
-        hora_inicio: new Date(viaje.fecha_inicio).toLocaleTimeString(
-          "es-HN",
-          opcionesHN
-        ),
-        hora_fin: new Date(viaje.fecha_fin).toLocaleTimeString(
-          "es-HN",
-          opcionesHN
-        ),
+        costo: viaje.costo || 0,
+        hora_inicio: viaje.fecha_inicio
+          ? new Date(viaje.fecha_inicio).toLocaleTimeString("es-HN", opcionesHN)
+          : "No iniciado",
+        hora_fin: viaje.fecha_fin
+          ? new Date(viaje.fecha_fin).toLocaleTimeString("es-HN", opcionesHN)
+          : "No finalizado",
+        vehiculo: viaje.Vehiculo
+          ? `${viaje.Vehiculo.marca} ${viaje.Vehiculo.modelo} - ${viaje.Vehiculo.placa} (${viaje.Vehiculo.color})`
+          : "Vehículo no asignado",
       }));
 
       return res.json({
@@ -644,6 +704,67 @@ const obtenerHistorial = async (req, res) => {
   }
 };
 
+const cancelarViaje = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const usuario = req.user;
+
+    // Buscar el viaje
+    const viaje = await Viajes.findOne({
+      where: {
+        id,
+        usuario_id: usuario.id, // Solo el creador puede cancelar
+        estado: 1, // Solo viajes PENDIENTES
+      },
+    });
+
+    if (!viaje) {
+      return res.status(404).json({
+        success: false,
+        message: "Viaje no encontrado o no disponible para cancelar",
+      });
+    }
+
+    // Verificar tiempo de cancelación
+    if (viaje.tiempo_cancelacion_expirado) {
+      return res.status(400).json({
+        success: false,
+        message: "El tiempo para cancelar este viaje ha expirado",
+      });
+    }
+
+    // Actualizar el estado del viaje
+    await viaje.update({
+      estado: 5, // CANCELADO
+      fecha_fin: new Date(),
+    });
+
+    // Después de actualizar el estado del viaje en cancelarViaje
+    const io = req.app.get("socketio");
+    if (io) {
+      io.emit(`viaje-${viaje.usuario_id}`, {
+        tipo: "viaje-cancelado",
+        data: viaje,
+      });
+      console.log(
+        `Evento viaje-cancelado emitido para usuario ${viaje.usuario_id}`
+      );
+    }
+
+    res.json({
+      success: true,
+      message: "Viaje cancelado exitosamente",
+    });
+  } catch (error) {
+    console.error("Error al cancelar viaje:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al cancelar viaje",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   crearViaje,
   obtenerViaje,
@@ -651,4 +772,5 @@ module.exports = {
   iniciarViaje,
   completarViaje,
   obtenerHistorial,
+  cancelarViaje,
 };

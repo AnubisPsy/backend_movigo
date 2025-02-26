@@ -15,5 +15,6 @@ router.get("/", viajeController.obtenerViaje);
 router.get("/:id", viajeController.obtenerViaje);
 router.put("/:id/iniciar", checkRole([2]), viajeController.iniciarViaje);
 router.put("/:id/completar", checkRole([2]), viajeController.completarViaje);
+router.put("/:id/cancelar", viajeController.cancelarViaje);
 
 module.exports = router;
