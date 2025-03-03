@@ -123,11 +123,8 @@ const obtenerViaje = async (req, res) => {
       });
     }
 
-    // Si no hay ID, listar viajes según el rol
     let viajes;
-    if (usuario.rol === 2) {
-      // Cambié el string "2" por número 2
-      // Conductor
+    if (usuario.rol === "2") {
       viajes = await Viajes.findAll({
         where: { estado: 1 }, // Solo PENDIENTES
         include: [
