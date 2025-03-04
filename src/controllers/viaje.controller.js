@@ -29,31 +29,21 @@ const crearViaje = async (req, res) => {
       destino,
       estado: 1, // ID del estado PENDIENTE
       created_at: new Date(),
-      tiempo_cancelacion_expirado: false,
+      // Ya no usamos tiempo_cancelacion_expirado
+      // tiempo_cancelacion_expirado: false,
       costo: 0,
     });
 
-    // Timer para marcar expiración de tiempo de cancelación (5 minutos)
-    setTimeout(async () => {
-      const viajeActual = await Viajes.findByPk(viaje.id);
-      if (viajeActual && viajeActual.estado === 1) {
-        // Si sigue PENDIENTE
-        viajeActual.tiempo_cancelacion_expirado = true;
-        await viajeActual.save();
-        console.log(`Viaje ${viaje.id}: Tiempo de cancelación expirado`);
-      }
-    }, 300 * 1000); // 30 segundos
-
-    // Timer para auto-cancelación (15 minutos)
+    // Timer para auto-cancelación (1 hora)
     setTimeout(async () => {
       const viajeActual = await Viajes.findByPk(viaje.id);
       if (viajeActual && viajeActual.estado === 1) {
         viajeActual.estado = 5; // CANCELADO
         viajeActual.fecha_fin = new Date();
         await viajeActual.save();
-        console.log(`Viaje ${viaje.id}: Auto-cancelado por tiempo`);
+        console.log(`Viaje ${viaje.id}: Auto-cancelado por tiempo (1 hora)`);
       }
-    }, 900 * 1000); // 60 segundos
+    }, 3600 * 1000); // 3600 segundos = 1 hora
 
     // Obtener el viaje con la información del estado
     const viajeConEstado = await Viajes.findOne({
@@ -719,14 +709,6 @@ const cancelarViaje = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Viaje no encontrado o no disponible para cancelar",
-      });
-    }
-
-    // Verificar tiempo de cancelación
-    if (viaje.tiempo_cancelacion_expirado) {
-      return res.status(400).json({
-        success: false,
-        message: "El tiempo para cancelar este viaje ha expirado",
       });
     }
 
