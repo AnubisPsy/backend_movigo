@@ -13,6 +13,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const models = initModels(sequelize);
 const cors = require("cors");
+const ubicacionRoutes = require("./src/routes/ubicacion.routes");
 
 // Middlewares
 app.use(cors());
@@ -34,6 +35,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/viajes", viajeRoutes);
 app.use("/api/vehiculos", vehiculoRoutes);
 app.use("/api/conductor/info", informacionConductorRoutes);
+app.use("/api/ubicacion", ubicacionRoutes);
 
 // Middleware de manejo de errores
 app.use((err, req, res, next) => {
