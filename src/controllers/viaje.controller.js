@@ -316,28 +316,24 @@ const iniciarViaje = async (req, res) => {
       });
     }
 
-    // Crear fecha en zona horaria de Honduras
-    const fechaInicioHN = new Date();
-    // Ajustar a UTC-6 (Honduras)
-    fechaInicioHN.setHours(fechaInicioHN.getHours() - 6);
+    // Crear fecha en formato UTC sin ajustes manuales
+    const fechaInicio = new Date();
 
     console.log("=== DEBUG INICIAR VIAJE ===");
-    console.log("Fecha inicio (UTC):", fechaInicioHN.toISOString());
-    console.log(
-      "Hora inicio (HN):",
-      fechaInicioHN.toLocaleString("es-HN", {
-        timeZone: "America/Tegucigalpa",
-        hour12: false,
-      })
-    );
+    console.log("Fecha inicio (UTC):", fechaInicio.toISOString());
+    console.log("Hora inicio (local):", fechaInicio.toLocaleString());
 
-    // Actualizar el estado del viaje
+    // Actualizar el estado del viaje - SOLO UNA VEZ
     await viaje.update({
       estado: 3, // EN_CURSO
-      fecha_inicio: fechaInicioHN,
+      fecha_inicio: fechaInicio,
     });
 
-    // Agregar después de viaje.update() en iniciarViaje
+    // Actualizar el objeto viaje con los nuevos datos
+    viaje.estado = 3;
+    viaje.fecha_inicio = fechaInicio;
+
+    // Emitir evento WebSocket
     const io = req.app.get("socketio");
     if (io) {
       io.emit(`viaje-${viaje.usuario_id}`, {
@@ -418,18 +414,9 @@ const completarViaje = async (req, res) => {
       where: { conductor_id: conductor.id },
     });
 
-    // Obtener fechas considerando la zona horaria de Honduras
+    // Obtener fechas en formato UTC
     const fechaInicio = new Date(viaje.fecha_inicio);
     const fechaFin = new Date();
-
-    // Configuración para Honduras
-    const opcionesHN = {
-      timeZone: "America/Tegucigalpa",
-      hour12: false,
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    };
 
     // Debug detallado
     console.log("=== DEBUG completar VIAJE ===");
@@ -437,11 +424,8 @@ const completarViaje = async (req, res) => {
     console.log("Fecha inicio (parsed):", fechaInicio.toISOString());
     console.log("Fecha fin (raw):", fechaFin);
     console.log("Fecha fin (parsed):", fechaFin.toISOString());
-    console.log(
-      "Hora inicio (HN):",
-      fechaInicio.toLocaleString("es-HN", opcionesHN)
-    );
-    console.log("Hora fin (HN):", fechaFin.toLocaleString("es-HN", opcionesHN));
+    console.log("Hora inicio (local):", fechaInicio.toLocaleString());
+    console.log("Hora fin (local):", fechaFin.toLocaleString());
 
     // Calcular duración usando timestamps para mayor precisión
     const duracionMinutos = Math.round(
@@ -457,10 +441,10 @@ const completarViaje = async (req, res) => {
     );
     const costoFinal = Math.round(costo * 100) / 100;
 
-    // Actualizar el viaje usando el timestamp UTC
+    // Actualizar el viaje usando el objeto Date directamente, sin toISOString()
     await viaje.update({
       estado: 4, // COMPLETADO
-      fecha_fin: new Date(fechaFin).toISOString(),
+      fecha_fin: fechaFin,
       costo: costoFinal,
     });
 
@@ -489,15 +473,18 @@ const completarViaje = async (req, res) => {
       ],
     });
 
+    // Agregar el campo duracion_minutos al objeto respuesta
+    const viajeCompletadoConDuracion = {
+      ...viajeCompletado.toJSON(),
+      duracion_minutos: duracionMinutos,
+    };
+
     // Emitir evento WebSocket
     const io = req.app.get("socketio");
     if (io) {
       io.emit(`viaje-${viaje.usuario_id}`, {
         tipo: "viaje-completado",
-        data: {
-          ...viajeCompletado.toJSON(),
-          duracion_minutos: duracionMinutos,
-        },
+        data: viajeCompletadoConDuracion,
       });
       console.log(
         `Evento viaje-completado emitido para usuario ${viaje.usuario_id}`
@@ -507,10 +494,7 @@ const completarViaje = async (req, res) => {
     res.json({
       success: true,
       message: "Viaje finalizado exitosamente",
-      data: {
-        ...viajeCompletado.toJSON(),
-        duracion_minutos: duracionMinutos,
-      },
+      data: viajeCompletadoConDuracion,
     });
   } catch (error) {
     console.error("Error al completar viaje:", error);
@@ -531,9 +515,8 @@ const obtenerHistorial = async (req, res) => {
 
     let viajes;
 
-    // Configurar opciones para el formato de hora Honduras
-    const opcionesHN = {
-      timeZone: "America/Tegucigalpa",
+    // Configurar opciones para el formato de hora
+    const opciones = {
       hour12: false,
       hour: "2-digit",
       minute: "2-digit",
@@ -582,7 +565,7 @@ const obtenerHistorial = async (req, res) => {
         const viajeFormateado = {
           id: viaje.id,
           fecha: viaje.created_at
-            ? new Date(viaje.created_at).toLocaleDateString("es-HN")
+            ? new Date(viaje.created_at).toLocaleDateString()
             : "Fecha no disponible",
           estado: viaje.Estado ? viaje.Estado.estado : "Estado desconocido",
           estado_id: viaje.estado,
@@ -593,15 +576,19 @@ const obtenerHistorial = async (req, res) => {
 
         // Añadir información de hora inicio/fin solo si están disponibles
         if (viaje.fecha_inicio) {
-          viajeFormateado.hora_inicio = new Date(
-            viaje.fecha_inicio
-          ).toLocaleTimeString("es-HN", opcionesHN);
+          const fechaInicio = new Date(viaje.fecha_inicio);
+          viajeFormateado.hora_inicio = fechaInicio.toLocaleTimeString(
+            undefined,
+            opciones
+          );
         }
 
         if (viaje.fecha_fin) {
-          viajeFormateado.hora_fin = new Date(
-            viaje.fecha_fin
-          ).toLocaleTimeString("es-HN", opcionesHN);
+          const fechaFin = new Date(viaje.fecha_fin);
+          viajeFormateado.hora_fin = fechaFin.toLocaleTimeString(
+            undefined,
+            opciones
+          );
         }
 
         // Añadir información del conductor si existe
@@ -652,29 +639,45 @@ const obtenerHistorial = async (req, res) => {
       });
 
       // Formatear datos para conductor (adaptado a todos los estados)
-      const historialConductor = viajes.map((viaje) => ({
-        id: viaje.id,
-        fecha: viaje.created_at
-          ? new Date(viaje.created_at).toLocaleDateString("es-HN")
-          : "Fecha no disponible",
-        estado: viaje.Estado ? viaje.Estado.estado : "Estado desconocido",
-        estado_id: viaje.estado,
-        pasajero: viaje.Usuario
-          ? `${viaje.Usuario.nombre} ${viaje.Usuario.apellido}`
-          : "Pasajero desconocido",
-        origen: viaje.origen,
-        destino: viaje.destino,
-        costo: viaje.costo || 0,
-        hora_inicio: viaje.fecha_inicio
-          ? new Date(viaje.fecha_inicio).toLocaleTimeString("es-HN", opcionesHN)
-          : "No iniciado",
-        hora_fin: viaje.fecha_fin
-          ? new Date(viaje.fecha_fin).toLocaleTimeString("es-HN", opcionesHN)
-          : "No finalizado",
-        vehiculo: viaje.Vehiculo
-          ? `${viaje.Vehiculo.marca} ${viaje.Vehiculo.modelo} - ${viaje.Vehiculo.placa} (${viaje.Vehiculo.color})`
-          : "Vehículo no asignado",
-      }));
+      const historialConductor = viajes.map((viaje) => {
+        const viajeFormateado = {
+          id: viaje.id,
+          fecha: viaje.created_at
+            ? new Date(viaje.created_at).toLocaleDateString()
+            : "Fecha no disponible",
+          estado: viaje.Estado ? viaje.Estado.estado : "Estado desconocido",
+          estado_id: viaje.estado,
+          pasajero: viaje.Usuario
+            ? `${viaje.Usuario.nombre} ${viaje.Usuario.apellido}`
+            : "Pasajero desconocido",
+          origen: viaje.origen,
+          destino: viaje.destino,
+          costo: viaje.costo || 0,
+          hora_inicio: "No iniciado",
+          hora_fin: "No finalizado",
+          vehiculo: viaje.Vehiculo
+            ? `${viaje.Vehiculo.marca} ${viaje.Vehiculo.modelo} - ${viaje.Vehiculo.placa} (${viaje.Vehiculo.color})`
+            : "Vehículo no asignado",
+        };
+
+        if (viaje.fecha_inicio) {
+          const fechaInicio = new Date(viaje.fecha_inicio);
+          viajeFormateado.hora_inicio = fechaInicio.toLocaleTimeString(
+            undefined,
+            opciones
+          );
+        }
+
+        if (viaje.fecha_fin) {
+          const fechaFin = new Date(viaje.fecha_fin);
+          viajeFormateado.hora_fin = fechaFin.toLocaleTimeString(
+            undefined,
+            opciones
+          );
+        }
+
+        return viajeFormateado;
+      });
 
       return res.json({
         success: true,
