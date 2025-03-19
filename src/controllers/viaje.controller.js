@@ -744,6 +744,251 @@ const cancelarViaje = async (req, res) => {
   }
 };
 
+// Pasajero propone precio
+const proponerPrecio = async (req, res) => {
+  try {
+    const { id } = req.params; // ID del viaje
+    const { precio_propuesto } = req.body;
+    const usuario = req.user;
+
+    // Verificar que es el pasajero quien propone
+    const viaje = await Viajes.findOne({
+      where: {
+        id,
+        usuario_id: usuario.id,
+        estado: 1, // Solo viajes PENDIENTES
+      },
+    });
+
+    if (!viaje) {
+      return res.status(404).json({
+        success: false,
+        message: "Viaje no encontrado o no disponible",
+      });
+    }
+
+    // Actualizar el viaje con el precio propuesto
+    await viaje.update({
+      precio_propuesto,
+      estado_negociacion: "propuesto",
+    });
+
+    // Emitir evento WebSocket
+    const io = req.app.get("socketio");
+    if (io) {
+      // Emitir a todos los conductores
+      io.emit(`viaje-propuesta`, {
+        tipo: "precio-propuesto",
+        data: viaje,
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Precio propuesto exitosamente",
+      data: viaje,
+    });
+  } catch (error) {
+    console.error("Error al proponer precio:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al proponer precio",
+      error: error.message,
+    });
+  }
+};
+
+// Conductor contrapropone precio
+const contraproponerPrecio = async (req, res) => {
+  try {
+    const { id } = req.params; // ID del viaje
+    const { precio_contraoferta } = req.body;
+    const conductor = req.user;
+
+    // Verificar que el usuario es conductor
+    if (conductor.rol !== "2") {
+      return res.status(403).json({
+        success: false,
+        message: "Solo los conductores pueden contrapropooner precios",
+      });
+    }
+
+    // Buscar el viaje
+    const viaje = await Viajes.findOne({
+      where: {
+        id,
+        estado: 1, // Solo viajes PENDIENTES
+      },
+    });
+
+    if (!viaje) {
+      return res.status(404).json({
+        success: false,
+        message: "Viaje no encontrado o no disponible",
+      });
+    }
+
+    // Actualizar el viaje con la contraoferta
+    await viaje.update({
+      precio_final: precio_contraoferta,
+      estado_negociacion: "contrapropuesto",
+      conductor_id: conductor.id, // Este conductor está interesado
+    });
+
+    // Emitir evento WebSocket para el pasajero
+    const io = req.app.get("socketio");
+    if (io) {
+      io.emit(`viaje-${viaje.usuario_id}`, {
+        tipo: "precio-contrapropuesto",
+        data: viaje,
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Contraoferta enviada exitosamente",
+      data: viaje,
+    });
+  } catch (error) {
+    console.error("Error al contrapropooner precio:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al contrapropooner precio",
+      error: error.message,
+    });
+  }
+};
+
+// Pasajero acepta contraoferta
+const aceptarContrapropuesta = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const usuario = req.user;
+
+    // Verificar que es el pasajero correcto
+    const viaje = await Viajes.findOne({
+      where: {
+        id,
+        usuario_id: usuario.id,
+        estado: 1,
+        estado_negociacion: "contrapropuesto",
+      },
+    });
+
+    if (!viaje) {
+      return res.status(404).json({
+        success: false,
+        message: "Viaje no encontrado o no disponible",
+      });
+    }
+
+    // Actualizar estado de negociación
+    await viaje.update({
+      estado_negociacion: "aceptado",
+    });
+
+    // Emitir evento al conductor
+    const io = req.app.get("socketio");
+    if (io && viaje.conductor_id) {
+      io.emit(`viaje-${viaje.conductor_id}`, {
+        tipo: "contraoferta-aceptada",
+        data: viaje,
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Contraoferta aceptada",
+      data: viaje,
+    });
+  } catch (error) {
+    console.error("Error al aceptar contraoferta:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al aceptar contraoferta",
+      error: error.message,
+    });
+  }
+};
+
+// Rechazar propuesta (ambas partes pueden rechazar)
+const rechazarPropuesta = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const usuario = req.user;
+
+    let viaje;
+    // Buscar según si es conductor o pasajero
+    if (usuario.rol === "1") {
+      viaje = await Viajes.findOne({
+        where: {
+          id,
+          usuario_id: usuario.id,
+        },
+      });
+    } else {
+      viaje = await Viajes.findOne({
+        where: {
+          id,
+          conductor_id: usuario.id,
+        },
+      });
+    }
+
+    if (!viaje) {
+      return res.status(404).json({
+        success: false,
+        message: "Viaje no encontrado",
+      });
+    }
+
+    // Actualizar el estado de negociación
+    await viaje.update({
+      estado_negociacion: "rechazado",
+    });
+
+    // Si es conductor quien rechaza, liberar el viaje para otros conductores
+    if (usuario.rol === "2") {
+      await viaje.update({
+        conductor_id: null,
+      });
+    }
+
+    // Emitir eventos según quien rechazó
+    const io = req.app.get("socketio");
+    if (io) {
+      if (usuario.rol === "1") {
+        // Pasajero rechazó, notificar conductor
+        if (viaje.conductor_id) {
+          io.emit(`viaje-${viaje.conductor_id}`, {
+            tipo: "propuesta-rechazada",
+            data: viaje,
+          });
+        }
+      } else {
+        // Conductor rechazó, notificar pasajero
+        io.emit(`viaje-${viaje.usuario_id}`, {
+          tipo: "propuesta-rechazada",
+          data: viaje,
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: "Propuesta rechazada",
+      data: viaje,
+    });
+  } catch (error) {
+    console.error("Error al rechazar propuesta:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al rechazar propuesta",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   crearViaje,
   obtenerViaje,
@@ -752,4 +997,8 @@ module.exports = {
   completarViaje,
   obtenerHistorial,
   cancelarViaje,
+  proponerPrecio,
+  contraproponerPrecio,
+  aceptarContrapropuesta,
+  rechazarPropuesta,
 };

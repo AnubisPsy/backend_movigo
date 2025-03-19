@@ -17,4 +17,26 @@ router.put("/:id/iniciar", checkRole([2]), viajeController.iniciarViaje);
 router.put("/:id/completar", checkRole([2]), viajeController.completarViaje);
 router.put("/:id/cancelar", viajeController.cancelarViaje);
 
+// Rutas para negociación de precio
+router.post(
+  "/:id/proponer-precio",
+  authMiddleware,
+  viajeController.proponerPrecio
+);
+router.post(
+  "/:id/contraproponer",
+  checkRole([2]),
+  viajeController.contraproponerPrecio
+);
+router.post(
+  "/:id/aceptar-propuesta",
+  authMiddleware,
+  viajeController.aceptarContrapropuesta
+);
+router.post(
+  "/:id/rechazar-propuesta",
+  authMiddleware,
+  viajeController.rechazarPropuesta
+);
+
 module.exports = router;

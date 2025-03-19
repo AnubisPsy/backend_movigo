@@ -58,8 +58,23 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.UUID,
         allowNull: true,
       },
+      precio_propuesto: {
+        type: DataTypes.DECIMAL,
+        allowNull: true,
+        defaultValue: 0,
+      },
+      precio_final: {
+        type: DataTypes.DECIMAL,
+        allowNull: true,
+        defaultValue: 0,
+      },
+      estado_negociacion: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        defaultValue: "sin_negociar",
+      },
     },
-    { 
+    {
       sequelize,
       tableName: "Viajes",
       schema: "public",
