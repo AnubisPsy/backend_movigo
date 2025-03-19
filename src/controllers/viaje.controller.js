@@ -516,8 +516,7 @@ const obtenerHistorial = async (req, res) => {
 
     let viajes;
 
-    // En obtenerHistorial, modifica el formateo de hora para ambos roles
-    // Configura opciones con la zona horaria específica
+    // Configurar opciones para el formato de hora - FUERA de cualquier bucle
     const opciones = {
       timeZone: "America/Tegucigalpa",
       hour12: false,
@@ -525,73 +524,41 @@ const obtenerHistorial = async (req, res) => {
       minute: "2-digit",
     };
 
-    // Y luego usa estas opciones al formatear las horas
-    if (viaje.fecha_inicio) {
-      const fechaInicio = new Date(viaje.fecha_inicio);
-      viajeFormateado.hora_inicio = fechaInicio.toLocaleTimeString(
-        "es-HN",
-        opciones
-      );
-    }
-
-    if (viaje.fecha_fin) {
-      const fechaFin = new Date(viaje.fecha_fin);
-      viajeFormateado.hora_fin = fechaFin.toLocaleTimeString("es-HN", opciones);
-    }
-
     if (usuario.rol === "1") {
       // Pasajero
       console.log("Obteniendo historial para PASAJERO");
-
-      // Añadir algunos logs para depuración
-      console.log("ID de usuario para filtro:", usuario.id);
 
       // Quitar el filtro de estado para mostrar todos los viajes
       viajes = await Viajes.findAll({
         where: {
           usuario_id: usuario.id,
-          // No filtrar por estado
         },
         include: [
           {
             model: Usuarios,
-            as: "Usuario", // Incluir el pasajero
+            as: "Usuario",
             attributes: ["nombre", "apellido"],
           },
           {
             model: Usuarios,
-            as: "Conductor", // Importante: incluir al conductor
+            as: "Conductor",
             attributes: ["nombre", "apellido"],
-            required: false, // Hacerlo opcional para viajes sin conductor asignado
+            required: false,
           },
           {
             model: Vehiculo,
             attributes: ["marca", "modelo", "año", "placa", "color"],
-            required: false, // Hacerlo opcional
+            required: false,
           },
           {
             model: Estado,
             attributes: ["id", "estado", "descripción"],
           },
         ],
-        order: [["created_at", "DESC"]], // Ordenar por fecha de creación
+        order: [["created_at", "DESC"]],
       });
 
-      console.log("Viajes encontrados para pasajero:", viajes.length);
-      // Si viajes.length es 0, registra una consulta directa para debugging
-      if (viajes.length === 0) {
-        console.log("Verificando viajes en la base de datos directamente...");
-        const viajesRaw = await Viajes.findAll({
-          where: {
-            usuario_id: usuario.id,
-          },
-          attributes: ["id", "usuario_id", "estado", "origen", "destino"],
-        });
-        console.log(
-          "Resultado de consulta directa:",
-          JSON.stringify(viajesRaw, null, 2)
-        );
-      }
+      console.log("Viajes encontrados:", viajes.length);
 
       // Formatear datos para pasajero (modificado para todos los estados)
       const historialPasajero = viajes.map((viaje) => {
@@ -608,28 +575,29 @@ const obtenerHistorial = async (req, res) => {
           costo: viaje.costo || 0,
         };
 
-        // Añadir información de hora inicio/fin solo si están disponibles
         if (viaje.fecha_inicio) {
-          // Aquí está el problema - necesitamos usar la fecha almacenada
-          const fechaInicio = new Date(viaje.fecha_inicio);
-          viajeFormateado.hora_inicio = fechaInicio.toLocaleTimeString(
+          const fechaInicioUTC = new Date(viaje.fecha_inicio);
+          // Usar el mismo método que funciona bien para el conductor
+          viajeFormateado.hora_inicio = fechaInicioUTC.toLocaleTimeString(
             "es-HN",
-            opciones
+            {
+              timeZone: "America/Tegucigalpa",
+              hour12: false,
+              hour: "2-digit",
+              minute: "2-digit",
+            }
           );
-          console.log("Fecha inicio real del viaje:", viaje.fecha_inicio);
-          console.log("Fecha parseada:", fechaInicio);
-          console.log("Hora formateada:", viajeFormateado.hora_inicio);
         }
 
         if (viaje.fecha_fin) {
-          const fechaFin = new Date(viaje.fecha_fin);
-          viajeFormateado.hora_fin = fechaFin.toLocaleTimeString(
-            "es-HN",
-            opciones
-          );
-          console.log("Fecha fin real del viaje:", viaje.fecha_fin);
-          console.log("Fecha parseada:", fechaFin);
-          console.log("Hora formateada:", viajeFormateado.hora_fin);
+          const fechaFinUTC = new Date(viaje.fecha_fin);
+
+          viajeFormateado.hora_fin = fechaFinUTC.toLocaleTimeString("es-HN", {
+            timeZone: "America/Tegucigalpa",
+            hour12: false,
+            hour: "2-digit",
+            minute: "2-digit",
+          });
         }
 
         // Añadir información del conductor si existe
@@ -658,12 +626,11 @@ const obtenerHistorial = async (req, res) => {
       viajes = await Viajes.findAll({
         where: {
           conductor_id: usuario.id,
-          // Eliminar la condición "estado: 4" para obtener todos
         },
         include: [
           {
             model: Usuarios,
-            as: "Usuario", // Incluir el usuario (pasajero)
+            as: "Usuario",
             attributes: ["nombre", "apellido"],
           },
           {
@@ -679,7 +646,7 @@ const obtenerHistorial = async (req, res) => {
         order: [["created_at", "DESC"]],
       });
 
-      // Para el conductor
+      // Formatear datos para conductor
       const historialConductor = viajes.map((viaje) => {
         const viajeFormateado = {
           id: viaje.id,
