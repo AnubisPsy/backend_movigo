@@ -39,6 +39,7 @@ const createUsuario = async (req, res) => {
       apellido,
       email,
       contraseña,
+      telefono,
       rol,
       estado_usuario = true,
     } = req.body;
@@ -74,6 +75,16 @@ const createUsuario = async (req, res) => {
       return res.status(400).json({ message: "Rol inválido" });
     }
 
+    // Validar formato de teléfono si se proporciona
+    if (telefono) {
+      const phoneRegex = /^\+?[0-9]{8,15}$/;
+      if (!phoneRegex.test(telefono)) {
+        return res
+          .status(400)
+          .json({ message: "Formato de teléfono inválido" });
+      }
+    }
+
     const emailExistente = await Usuarios.findOne({ where: { email } });
     if (emailExistente) {
       return res.status(400).json({ message: "Email ya registrado" });
@@ -84,6 +95,7 @@ const createUsuario = async (req, res) => {
       apellido,
       email,
       contraseña,
+      telefono,
       rol,
       estado_usuario,
       created_at: new Date(),
@@ -203,7 +215,7 @@ const updateUserProfile = async (req, res) => {
     console.log("Parámetros recibidos:", req.params);
 
     const { id } = req.params;
-    const { nombre, apellido, email } = req.body;
+    const { nombre, apellido, email, telefono } = req.body;
 
     // Validar campos recibidos
     if (!nombre || !apellido || !email) {
@@ -247,6 +259,7 @@ const updateUserProfile = async (req, res) => {
       nombre,
       apellido,
       email,
+      telefono, // Añadimos la actualización del teléfono
     });
 
     // Excluir la contraseña de la respuesta

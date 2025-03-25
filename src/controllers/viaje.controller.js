@@ -414,88 +414,83 @@ const completarViaje = async (req, res) => {
       where: { conductor_id: conductor.id },
     });
 
-    // Obtener fechas en formato UTC
+    // Depuración detallada de las fechas originales
+    console.log("=== DEBUG completar VIAJE ===");
+    console.log("Fecha inicio (raw):", viaje.fecha_inicio);
+
+    // Crear fechas
     const fechaInicio = new Date(viaje.fecha_inicio);
     const fechaFin = new Date();
 
-    // Debug detallado
-    console.log("=== DEBUG completar VIAJE ===");
-    console.log("Fecha inicio (raw):", viaje.fecha_inicio);
-    console.log("Fecha inicio (parsed):", fechaInicio.toISOString());
-    console.log("Fecha fin (raw):", fechaFin);
-    console.log("Fecha fin (parsed):", fechaFin.toISOString());
-    console.log("Hora inicio (local):", fechaInicio.toLocaleString());
-    console.log("Hora fin (local):", fechaFin.toLocaleString());
+    console.log("Fecha inicio (objeto):", fechaInicio);
+    console.log("Fecha fin (objeto):", fechaFin);
 
-    // Calcular duración usando timestamps para mayor precisión
-    const duracionMinutos = Math.round(
-      Math.abs(fechaFin.getTime() - fechaInicio.getTime()) / (1000 * 60)
+    // Método de corrección para manejar inconsistencias de fechas
+    const corregirFecha = (fecha) => {
+      // Si la fecha es inválida o inconsistente, usar la fecha actual
+      if (isNaN(fecha.getTime())) {
+        console.log("Fecha inválida detectada, usando fecha actual");
+        return new Date();
+      }
+      return fecha;
+    };
+
+    const fechaInicioCorregida = corregirFecha(fechaInicio);
+    const fechaFinCorregida = corregirFecha(fechaFin);
+
+    // Calcular duración en minutos, asegurando valores positivos
+    const duracionMinutos = Math.abs(
+      Math.round(
+        (fechaFinCorregida.getTime() - fechaInicioCorregida.getTime()) /
+          (1000 * 60)
+      )
     );
-    console.log("Duración en minutos del viaje:", duracionMinutos);
 
-    // Establecer un costo mínimo y calcular costo final
-    const costoMinimo = conductorInfo.tarifa_base;
+    console.log("Fecha inicio corregida:", fechaInicioCorregida);
+    console.log("Fecha fin corregida:", fechaFinCorregida);
+    console.log("Duración en minutos:", duracionMinutos);
+
+    // Cálculo de costo
+    const costoMinimo = conductorInfo?.tarifa_base || 50; // Tarifa base mínima
+    const costoBase = conductorInfo?.tarifa_base || 50;
     const costo = Math.max(
-      conductorInfo.tarifa_base * duracionMinutos,
+      costoBase * (duracionMinutos / 60), // Costo por hora
       costoMinimo
     );
-    const costoFinal = Math.round(costo * 100) / 100;
+    const costoFinal = Math.round(costo * 100) / 100; // Redondear a 2 decimales
 
-    // Actualizar el viaje usando el objeto Date directamente, sin toISOString()
+    // Actualizar el viaje
     await viaje.update({
       estado: 4, // COMPLETADO
-      fecha_fin: fechaFin,
+      fecha_fin: fechaFinCorregida.toISOString(),
       costo: costoFinal,
-      conductor_id: conductor.id,
     });
-
-    // Obtener el viaje completado
-    const viajeCompletado = await Viajes.findOne({
-      where: { id },
-      include: [
-        {
-          model: Estado,
-          attributes: ["id", "estado", "descripción"],
-        },
-        {
-          model: Usuarios,
-          as: "Usuario",
-          attributes: ["id", "nombre", "apellido", "email"],
-        },
-        {
-          model: Usuarios,
-          as: "Conductor",
-          attributes: ["id", "nombre", "apellido", "email"],
-        },
-        {
-          model: Vehiculo,
-          attributes: ["id", "marca", "modelo", "año", "placa", "color"],
-        },
-      ],
-    });
-
-    // Agregar el campo duracion_minutos al objeto respuesta
-    const viajeCompletadoConDuracion = {
-      ...viajeCompletado.toJSON(),
-      duracion_minutos: duracionMinutos,
-    };
 
     // Emitir evento WebSocket
     const io = req.app.get("socketio");
     if (io) {
       io.emit(`viaje-${viaje.usuario_id}`, {
         tipo: "viaje-completado",
-        data: viajeCompletadoConDuracion,
+        data: {
+          ...viaje.toJSON(),
+          duracion_minutos: duracionMinutos,
+          fecha_inicio: fechaInicioCorregida.toISOString(),
+          fecha_fin: fechaFinCorregida.toISOString(),
+          costo: costoFinal,
+        },
       });
-      console.log(
-        `Evento viaje-completado emitido para usuario ${viaje.usuario_id}`
-      );
     }
 
     res.json({
       success: true,
       message: "Viaje finalizado exitosamente",
-      data: viajeCompletadoConDuracion,
+      data: {
+        ...viaje.toJSON(),
+        duracion_minutos: duracionMinutos,
+        fecha_inicio: fechaInicioCorregida.toISOString(),
+        fecha_fin: fechaFinCorregida.toISOString(),
+        costo: costoFinal,
+      },
     });
   } catch (error) {
     console.error("Error al completar viaje:", error);

@@ -55,7 +55,7 @@ const login = async (req, res) => {
 
 const register = async (req, res) => {
   try {
-    const { email, contraseña, nombre, apellido, rol = 1 } = req.body;
+    const { email, contraseña, nombre, apellido, telefono, rol = 1 } = req.body;
 
     // Verificar si el usuario ya existe
     const usuarioExistente = await Usuarios.findOne({ where: { email } });
@@ -72,6 +72,7 @@ const register = async (req, res) => {
       contraseña: hashedPassword, // Usar la contraseña hasheada
       nombre,
       apellido,
+      telefono,
       rol,
       estado_usuario: true,
     });
@@ -82,6 +83,7 @@ const register = async (req, res) => {
         id: nuevoUsuario.id,
         nombre: nuevoUsuario.nombre,
         email: nuevoUsuario.email,
+        telefono: nuevoUsuario.telefono,
         rol: nuevoUsuario.rol,
       },
     });

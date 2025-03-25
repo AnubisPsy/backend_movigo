@@ -37,6 +37,10 @@ module.exports = function (sequelize) {
         type: DataTypes.TEXT,
         allowNull: true,
       },
+      telefono: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
       estado_usuario: {
         type: DataTypes.BOOLEAN,
         allowNull: true,
