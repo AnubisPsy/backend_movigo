@@ -225,7 +225,7 @@ const tomarViaje = async (req, res) => {
         {
           model: Usuarios,
           as: "Usuario",
-          attributes: ["id", "nombre", "apellido", "email"],
+          attributes: ["id", "nombre", "apellido", "email", "telefono"],
         },
         {
           model: Usuarios,
@@ -247,10 +247,9 @@ const tomarViaje = async (req, res) => {
         data: viajeAceptado,
       });
       console.log(
-        `Evento viaje-aceptado emitido para usuario ${viaje.usuario_id}`
+        `Evento viaje-aceptado emitido para usuario ${viaje.usuario_id} con datos completos`
       );
     }
-
     // Enviar respuesta con el nombre más descriptivo
     res.json({
       success: true,
@@ -328,20 +327,40 @@ const iniciarViaje = async (req, res) => {
       estado: 3, // EN_CURSO
       fecha_inicio: fechaInicio,
     });
-
-    // Actualizar el objeto viaje con los nuevos datos
-    viaje.estado = 3;
-    viaje.fecha_inicio = fechaInicio;
-
-    // Emitir evento WebSocket
     const io = req.app.get("socketio");
     if (io) {
+      // Obtener el viaje actualizado con todas sus relaciones
+      const viajeActualizado = await Viajes.findOne({
+        where: { id },
+        include: [
+          {
+            model: Estado,
+            attributes: ["id", "estado", "descripción"],
+          },
+          {
+            model: Usuarios,
+            as: "Usuario",
+            attributes: ["id", "nombre", "apellido", "email"],
+          },
+          {
+            model: Usuarios,
+            as: "Conductor",
+            attributes: ["id", "nombre", "apellido", "email"],
+          },
+          {
+            model: Vehiculo,
+            attributes: ["id", "marca", "modelo", "año", "placa", "color"],
+          },
+        ],
+      });
+
+      // Emitir el evento con todos los datos
       io.emit(`viaje-${viaje.usuario_id}`, {
         tipo: "viaje-iniciado",
-        data: viaje,
+        data: viajeActualizado,
       });
       console.log(
-        `Evento viaje-iniciado emitido para usuario ${viaje.usuario_id}`
+        `Evento viaje-iniciado emitido para usuario ${viaje.usuario_id} con datos completos`
       );
     }
 
@@ -457,7 +476,7 @@ const completarViaje = async (req, res) => {
       costoBase * (duracionMinutos / 60), // Costo por hora
       costoMinimo
     );
-    const costoFinal = Math.round(costo * 100) / 100; // Redondear a 2 decimales
+    const costoFinal = Math.round(costo * 0) / 100; // Redondear a 2 decimales
 
     // Actualizar el viaje
     await viaje.update({
